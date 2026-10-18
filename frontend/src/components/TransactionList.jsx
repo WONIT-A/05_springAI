@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import TransactionRow from './TransactionRow'
-import { fetchTransactions } from '../api/exchange'
+import { fetchTransactions } from '../api/bank.js'   // exchange.js 의 mock 함수가 아니라 bank.js (서버 호출)
 import { useFetch } from '../hooks/useFetch.js'
 import { formatWon } from '../utils/format.js'
 
@@ -16,16 +16,25 @@ const CATEGORY_OPTIONS = [
   "의료",
   "통신",
 ]
-function TransactionList({ transactions, showAmount }) {
-  // data 변수에 transcations [{ }, { }] 전체 리턴받음 
-  // const { data, loading, error, reload } = useFetch(fetchTransactions); // 함수 안에서 불러서 사용하는 함수를 CallBack
+function TransactionList({ accountNo, refreshKey, showAmount }) {
+  // 어느 계좌의 거래인지(accountNo)를 받아 서버에서 불러온다.
+  // 두 번째 인자 [accountNo, refreshKey]: 이 값이 바뀌면 다시 불러온다 (useFetch 의 deps)
+  const { data, loading, error, reload } =
+    useFetch(() => fetchTransactions(accountNo), [accountNo, refreshKey]);
+
+  // 🚨 훅(useState)은 아래의 로딩 · 에러 return 보다 위에 있어야 한다
   const [typeFilter, setTypeFilter] = useState("전체")
   const [categoryFilter, setCategoryFilter] = useState("전체")
 
-  // if (loading) return <p className="muted">거래내역을 불러오는 중...</p>;
-  // if (error) return <button className="btn" onClick={reload}>다시 시도</button>;
- 
-  // const transactions = data 
+  if (loading) return <p className="muted">거래 내역을 불러오는 중...</p>;
+  if (error) return (
+    <>
+      <p className="muted">거래 내역을 불러오지 못했습니다. ({error.message})</p>
+      <button className="btn" onClick={reload}>다시 시도</button>
+    </>
+  );
+
+  const transactions = data.content   // 서버가 페이징 응답({content: [...], page: {...}})으로 준다
   const visibleTransactions = transactions.filter((tx) => {
     const matchesType =
       typeFilter === "전체" || tx.txType === typeFilter

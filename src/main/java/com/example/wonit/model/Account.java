@@ -1,5 +1,6 @@
 package com.example.wonit.model;
 
+import com.example.wonit.exception.AccountDormantException;
 import com.example.wonit.exception.AccountFrozenException;
 import com.example.wonit.exception.BalanceRemainingException;
 import com.example.wonit.exception.InsufficientBalanceException;
@@ -84,8 +85,8 @@ public class Account {
     // 🏦 휴면 계좌는 입금도 막는다 → 이체 도중 여기서 터지면 @Transactional 이 출금까지 rollback 한다 (롤백 실험)
     public void deposit(BigDecimal amount) {
         if (status.equals("휴면")) {
-            throw new RuntimeException(
-                    "는 휴면 계좌라 입금할 수 없습니다.");   // RuntimeException 상속, 409
+            throw new AccountDormantException(
+                    "휴면 계좌라 입금할 수 없습니다.");   // RuntimeException 상속, 409
         }
         balance = balance.add(amount);
     }

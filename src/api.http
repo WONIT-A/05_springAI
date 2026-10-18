@@ -141,6 +141,53 @@ GET {{host}}/actuator/metrics/http.server.requests
 Authorization: Bearer {{token}}
 
 ### ---------------------------------------------------------------------------
+###  입금 · 이체 (로그인: yeonji)
+###  React 가 보내는 Idempotency-Key 헤더는 서버가 아직 읽지 않는다 → 같은 요청을 두 번 보내면 두 번 처리된다
+### ---------------------------------------------------------------------------
+
+### 입금 → 201 + 거래 1건
+POST {{host}}/api/accounts/1002-345-112233/deposits
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"amount":10000,"memo":"용돈"}
+
+### 이체 → 201 (출금 거래 반환). 내 계좌 → woori 계좌
+POST {{host}}/api/transfers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"fromAccountNo":"1002-345-112233","toAccountNo":"1002-555-667788","amount":5000,"memo":"점심값"}
+
+### 남의 계좌에서 이체 → 403 (yeonji 토큰으로 woori 계좌에서 보내기)
+POST {{host}}/api/transfers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"fromAccountNo":"1002-555-667788","toAccountNo":"1002-345-112233","amount":5000}
+
+### 같은 계좌로 이체 → 400 INVALID_ACCOUNT_REQUEST
+POST {{host}}/api/transfers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"fromAccountNo":"1002-345-112233","toAccountNo":"1002-345-112233","amount":5000}
+
+### 남(woori)의 계좌에 입금 → 403 (입금도 내 계좌에만)
+POST {{host}}/api/accounts/1002-555-667788/deposits
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"amount":10000}
+
+### 휴면 계좌에 입금 → 409 ACCOUNT_DORMANT
+POST {{host}}/api/accounts/1002-345-998877/deposits
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"amount":10000}
+
+### ---------------------------------------------------------------------------
 ###  H2 콘솔 실습 (http://localhost:8080/h2-console, JDBC URL: jdbc:h2:mem:testdb, 사용자: sa)
 ###  이 파일에서 실행하는 것이 아니라 H2 콘솔 화면에 붙여 넣어 실행한다.
 ###

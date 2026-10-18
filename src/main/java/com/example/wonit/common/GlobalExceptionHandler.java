@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -21,6 +22,20 @@ public class GlobalExceptionHandler {
         log.warn("지급정지 계좌 출금 시도: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("ACCOUNT_FROZEN", e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountDormantException.class)
+    public ResponseEntity<ErrorResponse> handleAccountDormant(AccountDormantException e) {
+        log.warn("휴면 계좌 입금 시도: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("ACCOUNT_DORMANT", e.getMessage()));
+    }
+
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientBalance(InsufficientBalanceException e) {
+        log.warn("잔액 부족: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("INSUFFICIENT_BALANCE", e.getMessage()));
     }
 
     @ExceptionHandler(InvalidAccountRequestException.class)
@@ -47,6 +62,15 @@ public class GlobalExceptionHandler {
 //    }
 
     // 맨 마지막 그물. 🚨 e.getMessage() 를 그대로 내보내면 SQL·클래스명이 손님 화면에 찍힌다
+    // @Valid 검사에 걸리면 → 400. DTO 에 적어 둔 message(예: "입금 금액은 0보다 커야 합니다")를 그대로 돌려준다
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .findFirst().map(f -> f.getDefaultMessage()).orElse("요청 값이 올바르지 않습니다.");
+        log.warn("요청 값 검사 실패: {}", message);
+        return ResponseEntity.badRequest().body(new ErrorResponse("BAD_REQUEST", message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
         // ① 스프링이 이미 상태코드를 정해 둔 예외 → 그 코드 그대로 (없는 주소 404, 허용 안 된 메서드 405, 필수값 누락 400, ResponseStatusException 등)

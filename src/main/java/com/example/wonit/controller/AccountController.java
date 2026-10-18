@@ -16,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import com.example.wonit.dto.DepositRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -230,6 +232,16 @@ public class AccountController {
         return AccountResponse.from(accountService.patchAccount(accountNo, request));
     }
 
+
+    // 입금 (내 계좌에만). React 가 보내는 Idempotency-Key 헤더는 읽지 않는다 (무시) — 막는 원리는 Day 1 멱등성에서 다룬다 (이 수업에서는 코드로 만들지 않는다)
+    @PostMapping("/{accountNo}/deposits")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TransactionResponse deposit(@AuthenticationPrincipal Jwt jwt,
+                                       @PathVariable("accountNo") String accountNo,
+                                       @Valid @RequestBody DepositRequest request) {
+        checkMine(jwt, accountNo);
+        return TransactionResponse.from(accountService.deposit(accountNo, request));
+    }
 
     //   DELETE /api/accounts/{accountNo}         해지      204
     @DeleteMapping ("/{accountNo}")

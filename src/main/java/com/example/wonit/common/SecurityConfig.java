@@ -49,6 +49,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .cors(Customizer.withDefaults())            // 🚨 이 줄이 없으면 WebConfig 의 CORS 설정이 무시되고 사전 확인(OPTIONS)이 401 이 된다
                 .csrf(AbstractHttpConfigurer::disable)      // 쿠키 세션을 안 쓰고 토큰을 쓰므로 CSRF 는 끈다
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))   // 서버는 로그인 상태를 저장하지 않는다
                 .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))     // Authorization: Bearer 토큰 검사

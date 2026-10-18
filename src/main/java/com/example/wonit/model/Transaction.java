@@ -49,5 +49,18 @@ public class Transaction {
         tx.txDatetime = LocalDateTime.now();
         return tx;
     }
+    // 🏦 입금 · 이체 출금/입금 공통. account 는 이미 잔액이 바뀐 뒤여야 한다 (balanceAfter = 바뀐 뒤 잔액)
+    public static Transaction of(Account account, String txType, BigDecimal amount, String memo, String counterparty) {
+        Transaction tx = new Transaction();
+        tx.account = account;
+        tx.txType = txType;
+        tx.amount = amount;
+        tx.balanceAfter = account.getBalance();
+        tx.memo = memo;
+        tx.counterparty = counterparty;
+        tx.category = counterparty != null ? "이체" : null;    // 상대 계좌가 있으면 이체
+        tx.txDatetime = LocalDateTime.now();
+        return tx;
+    }
     // transferOut(...) · transferIn(...) 은 6절에서, idempotencyKey 칸은 10절에서
 }

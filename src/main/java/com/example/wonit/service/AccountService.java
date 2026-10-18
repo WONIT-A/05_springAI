@@ -11,6 +11,8 @@ package com.example.wonit.service;
 
 import com.example.wonit.dto.AccountCreateRequest;
 import com.example.wonit.dto.AccountPatchRequest;
+import com.example.wonit.dto.DepositRequest;
+import com.example.wonit.dto.TransferRequest;
 import com.example.wonit.dto.TransactionResponse;
 import com.example.wonit.exception.*;
 import com.example.wonit.model.Account;
@@ -296,6 +298,37 @@ public class AccountService {
 //    끝나면 commit/rollback이 됨
 
     // lockAccount() 는 잠금 조회(SELECT ... FOR UPDATE)라서 트랜잭션 안에서만 동작합니다.
+    // 🏦 입금: 잠그고 → 잔액 올리고 → 거래내역 남기기. 셋이 한 묶음(@Transactional)이라 하나라도 실패하면 전부 취소
+    @Transactional
+    public Transaction deposit(String accountNo, DepositRequest request) {
+        Account account = lockAccount(accountNo);
+        account.deposit(request.amount());
+        return transactionRepository.save(Transaction.of(account, "입금", request.amount(), request.memo(), null));
+    }
+
+    // 🏦 이체: 출금 + 입금 + 거래내역 2건이 한 묶음. 도중에 예외(휴면 · 잔액부족)가 나면 출금까지 rollback 된다
+    @Transactional
+    public Transaction transfer(Integer customerId, TransferRequest request) {
+        String fromNo = request.fromAccountNo();
+        String toNo = request.toAccountNo();
+        if (fromNo.equals(toNo)) {
+            throw new InvalidAccountRequestException("같은 계좌로는 이체할 수 없습니다.");   // 400
+        }
+        // 🚨 데드락 방지: 두 계좌를 항상 계좌번호가 작은 쪽부터 잠근다 (A→B 와 B→A 가 동시에 와도 서로를 기다리지 않는다)
+        Account from, to;
+        if (fromNo.compareTo(toNo) < 0) { from = lockAccount(fromNo); to = lockAccount(toNo); }
+        else                            { to = lockAccount(toNo);     from = lockAccount(fromNo); }
+
+        if (!customerId.equals(from.getCustomerId())) {     // 남의 계좌에서 돈을 빼갈 수 없다 (토큰의 고객번호와 비교)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 계좌에서만 이체할 수 있습니다.");
+        }
+        from.withdraw(request.amount());
+        to.deposit(request.amount());
+        Transaction out = transactionRepository.save(Transaction.of(from, "출금", request.amount(), request.memo(), to.getAccountNo()));
+        transactionRepository.save(Transaction.of(to, "입금", request.amount(), request.memo(), from.getAccountNo()));
+        return out;
+    }
+
     @Transactional
     public Page<Transaction> getTransactions(String accountNo, Pageable pageable) {
 //        getAccount(accountNo);

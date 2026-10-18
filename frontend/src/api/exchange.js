@@ -1,13 +1,7 @@
  // /src/api/exchange.js
 
-import { transactions } from "../data/mockData.js";
-
 // 환율 API. 
 const API_URL = "https://open.er-api.com/v6/latest/USD";
-
-export function fetchTransactions() {
-  return transactions;
-}
 
 // 실제 서버는 많은 사람들의 요청을 동시에 받습니다.
 // 이 함수가 외부서버에 가서 결과를 받아올 때까지는 

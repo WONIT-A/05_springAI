@@ -36,3 +36,15 @@ h1 {
   color: #8b8f98;
   font-size: 13px;
 }
+/* 회원가입 폼 아래 버튼 두 개 (가입하기 · 로그인으로) */
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 로그인 화면 아래 "회원가입" 링크 줄 */
+.auth-switch {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #6b7280;
+}
