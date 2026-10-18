@@ -1,0 +1,601 @@
+{
+  "info": {
+    "name": "우리WON 뱅킹 API (04_springAI)",
+    "description": "Day 0 의 API. 서버를 먼저 켠다(./gradlew bootRun, http://localhost:8080).\n- 폴더는 Day 순서. 그날 태그에 아직 없는 API 는 404 가 정상이다.\n- 변수: host, accountNo(실습 계좌), newAccountNo(개설 요청이 저장).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "host",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "accountNo",
+      "value": "1002-345-112233"
+    },
+    {
+      "key": "newAccountNo",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Day 0 — 계좌 조회 · 개설 · 수정 · 해지",
+      "description": "start(=t1) 코드부터 동작. Day 2(t3) 이후로는 먼저 '로그인' 을 실행해야 한다.",
+      "item": [
+        {
+          "name": "계좌 목록",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "계좌 한 개",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "계좌 개설 (Body: JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1, \"accountType\": \"적금\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 새 계좌번호를 변수에 저장 → 아래 요청들이 {{newAccountNo}} 로 쓴다",
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('newAccountNo', pm.response.json().accountNo); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "415 실험 — Content-Type 이 text/plain",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\":1,\"accountType\":\"적금\"}"
+            },
+            "description": "Header 가 JSON 이 아니라고 말하므로 415 UNSUPPORTED_MEDIA_TYPE"
+          }
+        },
+        {
+          "name": "PUT 전부 보내기",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1, \"accountType\": \"입출금\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT accountType 빠뜨리기 (→ null 로 덮인다)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1}"
+            }
+          }
+        },
+        {
+          "name": "PUT 되돌리기 (적금)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1, \"accountType\": \"적금\"}"
+            }
+          }
+        },
+        {
+          "name": "PATCH status 만",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"휴면\"}"
+            }
+          }
+        },
+        {
+          "name": "PATCH 롤백 실험 (accountType 은 맞게, status 는 틀리게 → 400, accountType 도 그대로)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accountType\": \"입출금\", \"status\": \"이상\"}"
+            }
+          }
+        },
+        {
+          "name": "PATCH 되돌리기 (정상)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"정상\"}"
+            }
+          }
+        },
+        {
+          "name": "DELETE 새 계좌 (지금 코드: 진짜 삭제 200 / Soft Delete 로 고치면 204 · 해지)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{newAccountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{newAccountNo}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE 거래가 있는 계좌 (지금 코드: FK 때문에 500 / 고치면 잔액이 있어 409)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "거래내역 (쪽 단위)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/transactions?page=0&size=20",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "정상 계좌번호 (report1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/report1",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "report1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "적금 잔액 합계 (report2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/report2",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "report2"
+              ]
+            }
+          }
+        },
+        {
+          "name": "잔액 범위 검색",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/balance?minBalance=500000&maxBalance=1300000",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "balance"
+              ],
+              "query": [
+                {
+                  "key": "minBalance",
+                  "value": "500000"
+                },
+                {
+                  "key": "maxBalance",
+                  "value": "1300000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "잔액 오름차순",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/sort",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "sort"
+              ]
+            }
+          }
+        },
+        {
+          "name": "상태별 (정상)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/status/정상",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "status",
+                "정상"
+              ]
+            }
+          }
+        },
+        {
+          "name": "종류별 (적금)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/accounts/account-type/적금",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "account-type",
+                "적금"
+              ]
+            }
+          }
+        },
+        {
+          "name": "전체 거래 (최신순)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/transactions",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "거래 검색 (카테고리 또는 메모)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/transactions/select?category=식비&memo=",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transactions",
+                "select"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "식비"
+                },
+                {
+                  "key": "memo",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "거래 금액 범위",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/transactions/select2?minAmount=10000&maxAmount=100000",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transactions",
+                "select2"
+              ],
+              "query": [
+                {
+                  "key": "minAmount",
+                  "value": "10000"
+                },
+                {
+                  "key": "maxAmount",
+                  "value": "100000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "hello",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/hello",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "hello"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "hello 경로변수 · 쿼리",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/hello/path?name=연지&footSize=250",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "hello",
+                "path"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "연지"
+                },
+                {
+                  "key": "footSize",
+                  "value": "250"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
