@@ -51,8 +51,8 @@ npm run dev
 ### 준비 (수업 전 한 번)
 
 ```bash
-git clone https://github.com/WONIT-A/04_springAI.git
-cd 04_springAI
+git clone https://github.com/WONIT-A/05_springAI.git
+cd 05_springAI
 ```
 
 - 필요한 것: JDK 21, IntelliJ, Node.js (Day 3 화면용)
