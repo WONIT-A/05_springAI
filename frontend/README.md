@@ -42,9 +42,9 @@ npm run dev     # http://localhost:5173
 | 파일 | 하는 일 |
 |---|---|
 | `api/bank.js` | 서버 호출 전용. 모든 호출이 `request()` 하나를 거치며 토큰 · 에러(`toError`)를 한 곳에서 처리 |
-| `contexts/authContext.js` · `contexts/AuthContext.jsx` · `hooks/useAuth.js` | 로그인 정보(Context 객체 · Provider · 훅). lint 규칙 때문에 파일 3개로 나눔 |
+| `contexts/AuthContext.jsx` · `hooks/useAuth.js` | 로그인 정보. `AuthContext.jsx` 는 Provider 컴포넌트, `useAuth.js` 는 Context 객체와 꺼내 쓰는 훅 (컴포넌트와 같은 파일에 두면 lint 규칙에 걸려서 2개로 나눔) |
 | `App.jsx` | 로그인 했으면 `BankHome`, 아니면 `LoginPage` (라우터 없이 조건부 렌더링) |
-| `BankHome.jsx` | 은행 화면 (계좌 · 이체 · 거래내역 · 환율) |
+| `BankHome.jsx` | 은행 화면 (계좌 · 입금 · 이체 · 거래내역 · AI 분류 · 환율 · AI 저축 도우미 채팅창) |
 | `components/LoginPage.jsx` | 로그인 폼 |
 
 ## 자주 쓰는 명령
@@ -52,7 +52,7 @@ npm run dev     # http://localhost:5173
 | 명령 | 하는 일 |
 |---|---|
 | `npm run dev` | 개발 서버 (코드를 고치면 화면이 바로 바뀝니다) |
-| `npm run lint` | 코드 검사. **error 0** 이어야 합니다 (`AccoundCard2.jsx` 는 일부러 틀린 연습 파일이라 검사에서 제외) |
+| `npm run lint` | 코드 검사. **error 0 · warning 0** 이어야 합니다 (`AccoundCard2.jsx` 는 일부러 틀린 연습 파일이라 검사에서 제외) |
 | `npm run build` | 배포용 파일을 `dist/` 에 만듭니다 |
 
 ## 환경변수 `VITE_API_BASE`

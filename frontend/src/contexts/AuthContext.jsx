@@ -2,7 +2,7 @@
 // "지금 누가 로그인했나" 는 앱 전체가 공유하는 값이라 Context 에 담는다 (예전 UserContext 를 승격한 것)
 import { useEffect, useState } from "react";
 import { login as loginApi, signup as signupApi, getMe, setAccessToken, setOnUnauthorized } from "../api/bank.js";
-import { AuthContext } from "./authContext.js";
+import { AuthContext } from "../hooks/useAuth.js";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);       // null = 로그인 안 함 (flag 변수 원칙: 기본값은 꺼진 상태)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import TransactionRow from './TransactionRow'
-import { fetchTransactions } from '../api/bank.js'   // exchange.js 의 mock 함수가 아니라 bank.js (서버 호출)
+import { fetchTransactions } from '../api/bank.js'
 import { useFetch } from '../hooks/useFetch.js'
 import { formatWon } from '../utils/format.js'
 

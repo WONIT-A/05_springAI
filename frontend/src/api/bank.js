@@ -73,3 +73,14 @@ export const deposit = (accountNo, amount) =>
     method: "POST",
     body: JSON.stringify({ amount }),
   });
+
+// AI 카테고리 분류 (POST) — 메모를 보내면 { memo, category } 가 온다. 서버가 AI 를 부르므로 화면에는 AI 키가 없다
+export const classifyMemo = (memo) =>
+  request("/ai/category", { method: "POST", body: JSON.stringify({ memo }) });
+
+// AI 저축 도우미 (POST) — 질문 하나를 보내면 { reply } 가 온다. 서버가 고객별로 대화를 기억하므로 이번 질문 하나만 보낸다
+export const chat = (message) =>
+  request("/ai/chat", { method: "POST", body: JSON.stringify({ message }) });
+
+// 새 대화 (DELETE) — 서버가 기억하던 내 대화를 지운다 (204)
+export const clearChat = () => request("/ai/chat", { method: "DELETE" });

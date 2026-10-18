@@ -8,13 +8,13 @@ import { useState } from 'react'
 import { formatWon } from './utils/format.js'
 import ExchangeRate from './components/ExchangeRate.jsx'
 import TransactionList from './components/TransactionList.jsx'
-import TransferForm from './components/TransferForm.jsx' // 추가
+import TransferForm from './components/TransferForm.jsx'
+import AiCategory from './components/AiCategory.jsx'
+import ChatBot from './components/ChatBot.jsx'
 import { fetchAccounts, transfer, deposit } from './api/bank.js'   // 서버 호출은 api/bank.js 한 곳에 모아 두었다
 import { useFetch } from './hooks/useFetch.js'
 
-// 02_html기초.html 안에 만들었던 계좌카드의 css를 가져와서
-// 아래에 있는 카드를 좀더 그럴듯하게 꾸며보세요.
-// 실제로 사용될 화면을 그립니다.
+// 로그인한 뒤 보이는 은행 홈 화면을 그립니다.
 function BankHome() {
   
   // 화면이 렌더링 되기 위해 필요로 하는 값(data)을 적습니다.
@@ -28,13 +28,11 @@ function BankHome() {
   const [showFullNo, setShowFullNo] = useState(false);
   //     ↑현재 값      ↑바꾸는 함수              ↑처음값
 
-  // 실습!
-  // showAmount 버튼의 클릭 여부에 따라 AccoutCard의 금액이 보이거나 보이지 않도록 
-  // prop으로 새로 생긴 변수를 넘겨보세요
+  // 금액 보기 / 숨기기 (AccountCard · TransactionList 에 prop 으로 넘긴다)
   const [showAmount, setShowAmount] = useState(false);
 
-  // 이체 · 입금이 끝나면 이 숫자를 1 올립니다. TransactionList 가 이 값(refreshKey)이 바뀐 것을 보고 거래 내역을 다시 불러옵니다.
-  const [txVersion, setTxVersion] = useState(0);
+  // 이체 · 입금이 끝나면 이 숫자를 1 올립니다. TransactionList 가 이 값이 바뀐 것을 보고 거래 내역을 다시 불러옵니다.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // 어느 계좌에서 돈을 보낼지 고른 계좌번호. null 이면 첫 번째 계좌.
   // (과제 정답 예시: 출금 계좌를 고르는 선택 상자. 처음에는 1번 계좌 = 지급정지 계좌라 에러 화면을 만들어 보기 좋다)
@@ -63,7 +61,8 @@ function BankHome() {
     try {
       await deposit(accountNo, 10000)
       reload()                         // 계좌 목록 다시 불러오기
-      setTxVersion((v) => v + 1)       // 거래 목록도 다시 불러오기
+      setRefreshKey((v) => v + 1)      // 거래 목록도 다시 불러오기
+      setFromAccountNo(accountNo)      // 아래 "최근 거래" 는 고른 계좌 하나의 거래만 보여 준다 → 입금한 계좌로 바꿔야 방금 입금이 보인다
     } catch (err) {
       setDepositError(err)
     }
@@ -79,11 +78,11 @@ function BankHome() {
       idempotencyKey,
     )
     reload()                           // 계좌 목록 다시 불러오기
-    setTxVersion((v) => v + 1)         // 거래 목록도 다시 불러오기 (TransactionList 의 refreshKey)
+    setRefreshKey((v) => v + 1)        // 거래 목록도 다시 불러오기
   }
 
   // 합계를 state로 두지 않습니다. component 안에서의 각각의 상태값이 아니고
-  // App에서 매번 다시 계산하는 변수
+  // 그릴 때마다 다시 계산하는 변수
   // reduce 로 더하므로 계좌가 몇 개든 동작합니다 (accounts[0] + accounts[1] + ... 으로 쓰면 계좌 수가 바뀔 때 깨집니다)
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0)
 
@@ -110,7 +109,6 @@ function BankHome() {
     <Clock />
     {/* class 는 JS의 예약어이므로 JSX에서는 className으로 대신 사용합니다.*/}
 
-    {/* 추가 */}
     <Panel title="이체">
       <div className="field">
         <label>보내는 계좌</label>
@@ -129,7 +127,6 @@ function BankHome() {
       <p> 총 자산 </p>
       <p> {formatWon(totalBalance) } </p>
     </div>
-    {/* 사용 */}
 
     <Panel title={'내 계좌'}>
       {accounts.map((account) => (
@@ -156,23 +153,24 @@ function BankHome() {
       )}
     </Panel>
 
-    {/* map()과 key, spread연산자로 가지고 있는 집합자료형의 모든 자료를 화면에 
-    반복해서 돌면서 풀어헤칩니다.
-    1. spread 연산자로 전체 key/value를 퉁쳐버리면 props 에 처음에 받았던 값들만 사용합니다.
-    2. 어디에 무슨 변수가 들어가는지 확인이 불가합니다.  
-    txType, amount, category, memo, counterparty, txDatetime, hideAmount  */}
-
-    <Panel title="최근 거래">
+    <Panel title={`최근 거래 (${fromAccount.accountNo})`}>
       {/* key={accountNo}: 계좌를 바꾸면 TransactionList 를 새로 만들어 "불러오는 중" 부터 다시 보여 준다 */}
       <TransactionList key={fromAccount.accountNo}
                        accountNo={fromAccount.accountNo}
-                       refreshKey={txVersion}
+                       refreshKey={refreshKey}
                        showAmount={showAmount} />
+    </Panel>
+
+    <Panel title="AI 카테고리 분류">
+      <AiCategory />
     </Panel>
 
     <Panel title="오늘의 환율"> 
      <ExchangeRate />
     </Panel>
+
+    {/* 화면 오른쪽 아래에 떠 있는 AI 저축 도우미 (로그인한 홈에서만 보인다) */}
+    <ChatBot />
     </>
   );
 }
