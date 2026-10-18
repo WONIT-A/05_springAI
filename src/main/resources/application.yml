@@ -68,3 +68,13 @@ server:
 jwt:
   secret: ${JWT_SECRET:DEMO-ONLY-change-me-0123456789-0123456789}   # 학습용 기본값. 🚨 운영은 반드시 환경변수 JWT_SECRET 으로 덮어쓴다
   expiration-minutes: 30      # 토큰은 한 번 발급하면 취소하기 어렵다 → 만료를 짧게
+
+# 🔎 요청 추적: 요청마다 traceId(요청 전체 번호)를 만들어 로그 줄마다 찍어 준다
+management:
+  tracing:
+    sampling:
+      probability: 1.0        # 요청 100% 추적 (수업용. 운영은 0.1 처럼 일부만)
+  otlp:
+    metrics:
+      export:
+        enabled: false        # 받아 줄 수집기(OTel Collector)가 없으면 1분마다 전송 실패 경고가 찍힌다
