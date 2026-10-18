@@ -81,11 +81,21 @@
 --    (1, '010-1111-2222'),
 --    (1, '02-555-0000');
 
+-- 🔐 고객(회원) 2명. 비밀번호는 둘 다 1234 의 BCrypt 해시 (평문은 어디에도 저장하지 않는다)
+INSERT INTO customer (customer_id, login_id, password_hash, name, grade, joined_at) VALUES
+    (1, 'yeonji', '$2a$10$E2t4RLX1Grd7wyWqmjOPYuOpAAU0asscBfLSD9s1kuUuXn7I9rIU6', '김연지', 'VIP',  '2026-08-01 09:00:00'),
+    (2, 'woori',  '$2a$10$E2t4RLX1Grd7wyWqmjOPYuOpAAU0asscBfLSD9s1kuUuXn7I9rIU6', '이우리', '일반', '2026-09-01 09:00:00');
+-- 회원가입으로 새 고객이 생기면 3번부터 (H2 문법. MySQL 은 AUTO_INCREMENT 가 알아서 이어 간다)
+ALTER TABLE customer ALTER COLUMN customer_id RESTART WITH 3;
+
 INSERT INTO account (account_id, customer_id, account_no, account_type, balance, status) VALUES
     (1, 1, '1002-345-678901', '입출금', 1523000, '지급정지'),
     (2, 1, '1002-345-112233', '적금',   1099500, '정상'),
     (3, 1, '1002-345-998877', '적금',    497000, '휴면');
 ALTER TABLE account ALTER COLUMN account_id RESTART WITH 4;
+-- 🔐 우리(woori) 고객 계좌 (account_id 는 자동으로 4번이 된다)
+INSERT INTO account (customer_id, account_no, account_type, balance, status) VALUES
+    (2, '1002-555-667788', '입출금', 500000, '정상');
 --INSERT INTO employee (employee_id, name, duty) VALUES
 --    (1, '박지훈', '수신'),
 --    (2, '이서연', '여신');

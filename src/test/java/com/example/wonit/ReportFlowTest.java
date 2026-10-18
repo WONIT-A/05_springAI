@@ -9,16 +9,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.YearMonth;
-
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;   // 🔐 로그인한 척 (가짜 토큰)
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 리포트 API 와 AI 도구가 "그 고객의 거래만" 보는지 확인한다. 진짜 AI 는 부르지 않는다 (네트워크 · 키 필요)
-// 🚧 아직 로그인이 없어서 API 는 데모 고객 1번으로 동작한다 (Day 2 JWT 에서 토큰 주인으로 바뀐다)
+// 리포트 API 와 AI 도구가 "내 거래만" 보는지 확인한다. 진짜 AI 는 부르지 않는다 (네트워크 · 키 필요)
 @SpringBootTest
 @AutoConfigureMockMvc
 class ReportFlowTest {
@@ -30,9 +28,9 @@ class ReportFlowTest {
     ReportService reportService;
 
     @Test
-    @DisplayName("데모 고객 1 의 2026-09 소비 → 이체 100500 이 먼저, 식비 12000 (1건)")
+    @DisplayName("고객 1 의 2026-09 소비 → 이체 100500 이 먼저, 식비 12000 (1건)")
     void spendingOfCustomer1() throws Exception {
-        mockMvc.perform(get("/api/reports/spending?month=2026-09"))
+        mockMvc.perform(get("/api/reports/spending?month=2026-09").with(jwt().jwt(j -> j.subject("1"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].category").value("이체"))      // 금액이 큰 순서
                 .andExpect(jsonPath("$[0].total").value(100500))
@@ -42,26 +40,33 @@ class ReportFlowTest {
     }
 
     @Test
-    @DisplayName("다른 고객(2)으로 계산하면 고객 1 의 거래가 섞이지 않는다 → 빈 목록")
-    void spendingOfCustomer2() {
-        assertThat(reportService.spending(2, YearMonth.of(2026, 9))).isEmpty();
+    @DisplayName("고객 2 는 같은 달에 소비가 없다 → 빈 목록 (남의 거래는 안 보인다)")
+    void spendingOfCustomer2() throws Exception {
+        mockMvc.perform(get("/api/reports/spending?month=2026-09").with(jwt().jwt(j -> j.subject("2"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("토큰 없이 리포트 조회 → 401")
+    void noToken() throws Exception {
+        mockMvc.perform(get("/api/reports/spending")).andExpect(status().isUnauthorized());
     }
 
     @Test
     @DisplayName("월별 합계는 요청한 달 수만큼, 오래된 달부터 나온다")
     void monthly() throws Exception {
-        mockMvc.perform(get("/api/reports/monthly?months=3"))
+        mockMvc.perform(get("/api/reports/monthly?months=3").with(jwt().jwt(j -> j.subject("1"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3));
     }
 
     @Test
-    @DisplayName("AI 도구 myAccounts() → 고객 1 의 계좌 3개만")
+    @DisplayName("AI 도구 myAccounts() → 토큰 주인(고객 2)의 계좌만")
     void toolSeesOnlyMyAccounts() {
-        var accounts = new BankTools(1, reportService).myAccounts();
+        var accounts = new BankTools(2, reportService).myAccounts();
 
-        assertThat(accounts).extracting("accountNo")
-                .containsExactly("1002-345-678901", "1002-345-112233", "1002-345-998877");
+        assertThat(accounts).extracting("accountNo").containsExactly("1002-555-667788");
     }
 
     @Test
@@ -75,8 +80,10 @@ class ReportFlowTest {
     }
 
     @Test
-    @DisplayName("새 대화(DELETE /api/ai/chat) → 204")
+    @DisplayName("새 대화(DELETE /api/ai/chat) → 204, 토큰 없이는 401")
     void clearChat() throws Exception {
-        mockMvc.perform(delete("/api/ai/chat")).andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/ai/chat").with(jwt().jwt(j -> j.subject("1"))))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/ai/chat")).andExpect(status().isUnauthorized());
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;   // 🔐 로그인한 척 (가짜 토큰)
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,7 +33,7 @@ class AccountControllerTest {
         given(accountService.getAccount("9999-000-000000"))
                 .willThrow(new AccountNotFoundException("9999-000-000000 계좌를 찾을 수 없습니다."));
 
-        mockMvc.perform(get("/api/accounts/9999-000-000000"))
+        mockMvc.perform(get("/api/accounts/9999-000-000000").with(jwt().jwt(j -> j.subject("1"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
     }
@@ -44,7 +45,7 @@ class AccountControllerTest {
         account.deposit(new BigDecimal("50000.00"));
         given(accountService.getAccount(account.getAccountNo())).willReturn(account);
 
-        mockMvc.perform(get("/api/accounts/" + account.getAccountNo()))
+        mockMvc.perform(get("/api/accounts/" + account.getAccountNo()).with(jwt().jwt(j -> j.subject("1"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountNo").value(account.getAccountNo()))
                 .andExpect(jsonPath("$.balance").value(50000.00))

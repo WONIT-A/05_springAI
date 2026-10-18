@@ -20,7 +20,7 @@
 
 ## 🧰 Postman 으로 전체 API 호출하기
 
-`docs/postman/wonbanking.postman_collection.json` 에 그날까지 배운 API 가 Day 별 폴더로 들어 있습니다 (Day 3 까지 모두 55개).
+`docs/postman/wonbanking.postman_collection.json` 에 그날까지 배운 API 가 Day 별 폴더로 들어 있습니다 (Day 3 까지 모두 58개).
 
 1. Postman → **Import** → 위 JSON 파일을 끌어다 놓습니다.
 2. 서버를 켠 뒤, 컬렉션의 요청을 위에서부터 하나씩 **Send** 합니다.

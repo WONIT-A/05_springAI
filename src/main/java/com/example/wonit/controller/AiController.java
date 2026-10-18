@@ -13,6 +13,8 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,14 +73,13 @@ public class AiController {
     // 💬 AI 저축 도우미 (Tool Calling)
     //   - 숫자는 DB 가 계산하고(리포트), 문장은 AI 가 만든다
     //   - AI 에게 BankTools 의 메서드를 "도구" 로 건넨다. 어떤 도구를 부를지는 AI 가 고르고, 실제 실행은 우리 서버가 한다
-    //   - 🔐 BankTools 는 customerId 를 넣어 만든다 → AI 가 다른 고객 번호를 넣을 수 없다
-    //     🚧 아직 로그인(JWT)이 없어서 데모 고객 1번(ReportController.DEMO_CUSTOMER_ID). Day 2 JWT 에서 토큰 주인으로 바꾼다
+    //   - 🔐 BankTools 는 토큰 주인의 customerId 로 만든다 → AI 가 다른 고객 번호를 넣을 수 없다
     //   - 대화를 서버 메모리(ChatMemory)에 저장해서 "그럼 그 중에 식비는?" 같은 이어지는 질문을 이해한다
     //     대화 번호 = customerId → 🔐 고객마다 대화가 따로 저장된다. 서버를 다시 켜면 사라진다 (DB 에 저장하려면 JDBC ChatMemoryRepository — 설명만)
     @Operation(summary = "AI 저축 도우미 (Tool Calling)")
     @PostMapping("/chat")
-    public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        Integer customerId = ReportController.DEMO_CUSTOMER_ID;
+    public ChatResponse chat(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
+        Integer customerId = Integer.valueOf(jwt.getSubject());
         try {
             String reply = chatClient.prompt()
                     .system(sys -> sys.text(savingsPrompt).param("today", LocalDate.now()))
@@ -98,7 +99,7 @@ public class AiController {
     @Operation(summary = "AI 저축 도우미 대화 지우기")
     @DeleteMapping("/chat")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void clearChat() {
-        chatMemory.clear(String.valueOf(ReportController.DEMO_CUSTOMER_ID));
+    public void clearChat(@AuthenticationPrincipal Jwt jwt) {
+        chatMemory.clear(jwt.getSubject());
     }
 }

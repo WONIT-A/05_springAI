@@ -27,7 +27,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -68,6 +70,18 @@ public class AccountService {
 
         // 코드3: 로그는 return이 일어나기 전에 보통 찍습니다.
         return accounts;
+    }
+
+    // 🔐 로그인한 고객의 계좌만
+    public List<Account> findMine(Integer customerId) {
+        return accountRepository.findByCustomerId(customerId);
+    }
+
+    // 🔐 주소에 적힌 계좌가 토큰 주인의 계좌인지 확인한다. 남의 계좌면 403 (없는 계좌면 getAccount 가 404)
+    public void checkMine(Integer customerId, String accountNo) {
+        if (!customerId.equals(getAccount(accountNo).getCustomerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 계좌만 사용할 수 있습니다.");
+        }
     }
 
     // 하나의 계좌 정보를 repo에서 받아서 리턴하거나 NPE을 막아주는 함수

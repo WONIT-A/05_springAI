@@ -6,17 +6,52 @@
 @host = http://localhost:8080
 
 ### ---------------------------------------------------------------------------
+###  로그인 — 맨 먼저 한 번 실행한다. 받은 토큰을 token 변수에 저장해 아래 모든 요청이 쓴다
+###  (yeonji / 1234 = 김연지 VIP,  woori / 1234 = 이우리 일반)
+###  토큰 없이 보내면 401 이다. 토큰은 30분 뒤 만료되니 401 이 나면 다시 로그인한다
+### ---------------------------------------------------------------------------
+
+### 로그인
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"loginId":"yeonji","password":"1234"}
+
+> {% client.global.set("token", response.body.accessToken); %}
+
+
+### 회원가입 → 201 (입출금 계좌 1개가 함께 생긴다). 같은 아이디로 다시 보내면 409
+POST {{host}}/api/auth/signup
+Content-Type: application/json
+
+{"loginId":"newbie","password":"abcd","name":"새회원"}
+
+### 비밀번호가 4자 미만 → 400
+POST {{host}}/api/auth/signup
+Content-Type: application/json
+
+{"loginId":"newbie2","password":"123","name":"짧은비번"}
+
+### 내 정보 (토큰 안의 name · grade)
+GET {{host}}/api/me
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------------
 ###  기본 조회 (아래 섹션들에서 결과를 확인할 때 다시 쓴다)
+###  계좌 목록은 로그인한 고객의 계좌만 나온다
 ### ---------------------------------------------------------------------------
 
 ### 계좌 목록
 GET {{host}}/api/accounts
+Authorization: Bearer {{token}}
 
 ### 계좌 한 개
 GET {{host}}/api/accounts/1002-345-112233
+Authorization: Bearer {{token}}
 
 ### 거래내역 (쪽 단위: page 는 0부터)
 GET {{host}}/api/accounts/1002-345-112233/transactions?page=0&size=20
+Authorization: Bearer {{token}}
 
 ### ---------------------------------------------------------------------------
 ###  멱등성 — 같은 요청을 두 번 보내면?
@@ -26,12 +61,14 @@ GET {{host}}/api/accounts/1002-345-112233/transactions?page=0&size=20
 
 ### POST 두 번 → 계좌가 2개 생긴다 (계좌번호가 서로 다름) = 멱등 X
 POST {{host}}/api/accounts
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"customerId":1,"accountType":"적금"}
 
 ### PUT 두 번 → 두 번 다 같은 상태(입출금) = 멱등 O
 PUT {{host}}/api/accounts/1002-345-112233
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"customerId":1,"accountType":"입출금"}
@@ -44,12 +81,14 @@ Content-Type: application/json
 
 ### PATCH 두 번 → 두 번 다 같은 상태(휴면) = 멱등 O
 PATCH {{host}}/api/accounts/1002-345-112233/status
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"status":"휴면"}
 
 ### (복구) 위 실습 때문에 휴면이 됐으니 다시 정상으로 되돌린다
 PATCH {{host}}/api/accounts/1002-345-112233/status
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"status":"정상"}
@@ -59,6 +98,7 @@ Content-Type: application/json
 ###    시드 계좌 1~3번은 거래내역이 있어서 지우면 FK 오류가 난다.
 ### 첫 번째 DELETE 와 두 번째 DELETE 의 결과 상태는 같다(계좌 없음) = 멱등 O
 DELETE {{host}}/api/accounts/여기에-accountNo-붙여넣기
+Authorization: Bearer {{token}}
 
 ### ---------------------------------------------------------------------------
 ###  Spring AI — 메모로 카테고리 분류
@@ -68,6 +108,7 @@ DELETE {{host}}/api/accounts/여기에-accountNo-붙여넣기
 
 ### 메모 → 카테고리 (식비 · 쇼핑 · 교통 · 급여 · 저축 · 이체 · 기타)
 POST {{host}}/api/ai/category
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"memo":"스타벅스 아메리카노"}
@@ -95,21 +136,26 @@ Content-Type: application/json
 
 ### 카테고리별 소비 (이체 100500 · 식비 12000 이 나온다)
 GET {{host}}/api/reports/spending?month=2026-09
+Authorization: Bearer {{token}}
 
 ### 최근 3달 월별 입금 · 출금 합계
 GET {{host}}/api/reports/monthly?months=3
+Authorization: Bearer {{token}}
 
 ### AI 저축 도우미 (Tool Calling). AI 키가 없으면 "지금은 AI 도우미를 쓸 수 없습니다" 가 온다
 POST {{host}}/api/ai/chat
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"message":"지난달 소비 리포트 보여줘"}
 
 ### 이어지는 질문 (서버가 고객별로 대화를 기억한다. 위 질문 바로 다음에 보낸다)
 POST {{host}}/api/ai/chat
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"message":"그 중에 제일 많이 쓴 건?"}
 
 ### 새 대화 → 204 (내 대화 기억만 지운다)
 DELETE {{host}}/api/ai/chat
+Authorization: Bearer {{token}}

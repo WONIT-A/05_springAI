@@ -16,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -48,12 +50,18 @@ public class AccountController {
     // jpa의 규칙은 Repository에서만 영향을 미칩니다.
     @Operation(summary = "정보 모두 조회", description = "Account의 전체 정보를 조회합니다.")
     @GetMapping
-    public List<AccountResponse> findAll() {
+    public List<AccountResponse> findAll(@AuthenticationPrincipal Jwt jwt) {   // 🔐 토큰 주인의 계좌만
     //public List<Account> findAll() {
         // stream().filter() : 값이 true인 것만 반환
         // stream().map() : 모든 값에 같은 메서드를 일괄 적용
         log.info("전체 계좌 조회 시작");
-        return accountService.findAll().stream().map(AccountResponse::from).toList();
+        return accountService.findMine(Integer.valueOf(jwt.getSubject())).stream().map(AccountResponse::from).toList();
+    }
+
+    // 🔐 주소의 계좌번호가 토큰 주인의 계좌인지 먼저 확인한다 (남의 계좌면 403).
+    //    계좌번호가 주소에 들어가는 API(조회 · 수정 · 해지 · 거래내역)는 모두 맨 앞에서 부른다
+    private void checkMine(Jwt jwt, String accountNo) {
+        accountService.checkMine(Integer.valueOf(jwt.getSubject()), accountNo);
     }
 
 //    // @RequestBody : 숨기고 싶은 정보, 주소줄에 전달하기에 너무 긴 값들을 Body에 싣고 전달하는 방법
@@ -96,7 +104,9 @@ public class AccountController {
      * @return 생성된 계좌 정보
      */
     @PostMapping
-    public AccountResponse createAccount(@RequestBody AccountCreateRequest request) {
+    public AccountResponse createAccount(@AuthenticationPrincipal Jwt jwt, @RequestBody AccountCreateRequest request) {
+        // 🔐 누구의 계좌인지는 토큰이 정한다 (Body 의 customerId 는 쓰지 않는다 → 남의 이름으로 개설 불가)
+        request = new AccountCreateRequest(Integer.valueOf(jwt.getSubject()), request.accountType());
         log.debug("계좌 개설 요청: customerId={}, accountType={}",
                 request.customerId(), request.accountType());
 
@@ -115,7 +125,8 @@ public class AccountController {
      * @throws AccountNotFoundException 그런 계좌가 없을 때
      */
     @GetMapping("/{accountNo}")
-    public AccountResponse findOne(@PathVariable("accountNo") String accountNo){
+    public AccountResponse findOne(@AuthenticationPrincipal Jwt jwt, @PathVariable("accountNo") String accountNo){
+        checkMine(jwt, accountNo);
     // public Account findOne(@PathVariable("accountNo") String accountNo){
         // log.trace("trace level의 로그 - 자잘함");
         // log.debug("debug level의 로그 - 개발자가 flow 따라갈 수 있는 수준의 로그");
@@ -195,8 +206,12 @@ public class AccountController {
     //   - 같은 요청을 몇 번 보내도 결과가 같다 (멱등). 두 번 보내도 accountType · status 는 똑같다
     // PATCH 와 비교: PATCH /status 는 status 한 칸만 보내고, 나머지 칸은 그대로 둔다
     @PutMapping("/{accountNo}")
-    public AccountResponse updateOne(@PathVariable("accountNo") String accountNo, // 주소줄
+    public AccountResponse updateOne(@AuthenticationPrincipal Jwt jwt,
+                                     @PathVariable("accountNo") String accountNo, // 주소줄
                                      @RequestBody AccountCreateRequest request) { // Body
+        checkMine(jwt, accountNo);
+        // 🔐 주인(customerId)은 토큰이 정한다. Body 로 주인을 바꿔 남에게 넘기거나 빼앗을 수 없다
+        request = new AccountCreateRequest(Integer.valueOf(jwt.getSubject()), request.accountType());
         return AccountResponse.from(accountService.updateOne(accountNo, request));
     }
 
@@ -208,15 +223,18 @@ public class AccountController {
     // → 엔티티 값을 바꿔도 자바 객체만 바뀌고, 끝날 때 비교해 줄 트랜잭션이 없다
     @Operation(summary = "계좌 상태 변경", description = "정상 · 지급정지 · 휴면 중 하나로 바꿉니다. 해지는 DELETE 로 합니다.")
     @PatchMapping("/{accountNo}/status")
-    public AccountResponse changeStatus(@PathVariable("accountNo") String accountNo,
+    public AccountResponse changeStatus(@AuthenticationPrincipal Jwt jwt,
+                                        @PathVariable("accountNo") String accountNo,
                                         @Valid @RequestBody AccountPatchRequest request) {
+        checkMine(jwt, accountNo);
         return AccountResponse.from(accountService.patchAccount(accountNo, request));
     }
 
 
     //   DELETE /api/accounts/{accountNo}         해지      204
     @DeleteMapping ("/{accountNo}")
-    public void deleteOne(@PathVariable("accountNo") String accountNo) {
+    public void deleteOne(@AuthenticationPrincipal Jwt jwt, @PathVariable("accountNo") String accountNo) {
+        checkMine(jwt, accountNo);
         accountService.deleteOneByAccountNo(accountNo);
 //        accountService.deleteOne(accountNo);
     }
@@ -226,7 +244,9 @@ public class AccountController {
     // 응답은 배열이 아니라 { "content": [...], "page": { "size", "number", "totalElements", "totalPages" } } 모양이다 (Page → common/WebConfig 의 VIA_DTO)
 // Controller — ?page=0&size=20 을 Spring 이 Pageable 로 바꿔 준다
     @GetMapping("/{accountNo}/transactions")
-    public Page<TransactionResponse> transactions(@PathVariable("accountNo") String accountNo, Pageable pageable) {
+    public Page<TransactionResponse> transactions(@AuthenticationPrincipal Jwt jwt,
+                                                  @PathVariable("accountNo") String accountNo, Pageable pageable) {
+        checkMine(jwt, accountNo);
         // 정렬은 서버가 최신순으로 고정한다
         Pageable newestFirst = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
                 Sort.by(Sort.Direction.DESC, "txDatetime"));

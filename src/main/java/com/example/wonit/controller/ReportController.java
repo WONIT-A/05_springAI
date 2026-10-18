@@ -6,6 +6,8 @@ import com.example.wonit.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,18 +25,17 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    // 🚧 아직 로그인(JWT)이 없다 → 데모 고객 1번(김연지)으로 고정. Day 2 JWT 에서 "토큰 주인" 으로 바꾼다
-    static final Integer DEMO_CUSTOMER_ID = 1;
-
     @Operation(summary = "카테고리별 소비", description = "한 달 동안의 카테고리별 출금 합계 (month 생략 시 이번 달)")
     @GetMapping("/spending")
-    public List<CategorySpending> spending(@RequestParam(required = false) YearMonth month) {
-        return reportService.spending(DEMO_CUSTOMER_ID, month != null ? month : YearMonth.now());
+    public List<CategorySpending> spending(@AuthenticationPrincipal Jwt jwt,   // 🔐 토큰 주인의 거래만
+                                           @RequestParam(required = false) YearMonth month) {
+        return reportService.spending(Integer.valueOf(jwt.getSubject()), month != null ? month : YearMonth.now());
     }
 
     @Operation(summary = "월별 입금 · 출금 합계", description = "최근 months 달 (1~12, 기본 3)")
     @GetMapping("/monthly")
-    public List<MonthlySummary> monthly(@RequestParam(defaultValue = "3") int months) {
-        return reportService.monthly(DEMO_CUSTOMER_ID, months);
+    public List<MonthlySummary> monthly(@AuthenticationPrincipal Jwt jwt,
+                                        @RequestParam(defaultValue = "3") int months) {
+        return reportService.monthly(Integer.valueOf(jwt.getSubject()), months);
     }
 }

@@ -63,3 +63,8 @@ logging:
 
 server:
   port: 8080
+
+# 🔐 JWT: 로그인하면 이 비밀키로 서명한 토큰(출입증)을 준다. 32바이트(영문 32자) 이상이어야 한다
+jwt:
+  secret: ${JWT_SECRET:DEMO-ONLY-change-me-0123456789-0123456789}   # 학습용 기본값. 🚨 운영은 반드시 환경변수 JWT_SECRET 으로 덮어쓴다
+  expiration-minutes: 30      # 토큰은 한 번 발급하면 취소하기 어렵다 → 만료를 짧게
