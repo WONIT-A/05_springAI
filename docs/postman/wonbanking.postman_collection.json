@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "우리WON 뱅킹 API (04_springAI)",
-    "description": "Day 0 의 API. 서버를 먼저 켠다(./gradlew bootRun, http://localhost:8080).\n- 폴더는 Day 순서. 그날 태그에 아직 없는 API 는 404 가 정상이다.\n- 변수: host, accountNo(실습 계좌), newAccountNo(개설 요청이 저장).",
+    "description": "Day 0 ~ Day 1 의 API. 서버를 먼저 켠다(./gradlew bootRun, http://localhost:8080).\n- 폴더는 Day 순서. 그날 태그에 아직 없는 API 는 404 가 정상이다.\n- 변수: host, accountNo(실습 계좌), newAccountNo(개설 요청이 저장).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -592,6 +592,239 @@
             },
             "auth": {
               "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Day 1 — 멱등성 · Spring AI (t1 · t2)",
+      "description": "AI 는 t2 부터. 키 없이 띄우면 category 는 '기타', chat 은 안내 문구. t2 에서는 로그인 없이 데모 고객 1번.",
+      "item": [
+        {
+          "name": "POST 두 번 보내기 ① (멱등 아님: 계좌가 2개 생긴다)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1, \"accountType\": \"적금\"}"
+            }
+          }
+        },
+        {
+          "name": "POST 두 번 보내기 ②",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\": 1, \"accountType\": \"적금\"}"
+            }
+          }
+        },
+        {
+          "name": "PATCH 두 번 보내기 (멱등: 결과가 같다)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"정상\"}"
+            }
+          }
+        },
+        {
+          "name": "AI 카테고리 분류",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/ai/category",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "category"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"memo\": \"스타벅스 강남점\"}"
+            }
+          }
+        },
+        {
+          "name": "리포트 — 카테고리별 소비",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/reports/spending?month=2026-09",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "spending"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "2026-09"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "리포트 — 월별 입출금",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/reports/monthly?months=3",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "monthly"
+              ],
+              "query": [
+                {
+                  "key": "months",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "AI 저축 도우미",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/ai/chat",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"지난달 소비 리포트 보여줘\"}"
+            }
+          }
+        },
+        {
+          "name": "AI 저축 도우미 — 이어지는 질문",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/ai/chat",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"그 중에 제일 많이 쓴 건?\"}"
+            }
+          }
+        },
+        {
+          "name": "AI 저축 도우미 — 새 대화 (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/api/ai/chat",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
             }
           }
         }

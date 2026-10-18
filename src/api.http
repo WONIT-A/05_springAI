@@ -1,0 +1,76 @@
+### ============================================================================
+###  api.http — IntelliJ HTTP Client 실습 파일
+###  앱을 먼저 실행(./gradlew bootRun)한 뒤, 요청 왼쪽의 ▶ 버튼으로 하나씩 보낸다.
+###  "###" 로 시작하는 줄이 요청 하나의 구분선이다.
+### ============================================================================
+@host = http://localhost:8080
+
+### ---------------------------------------------------------------------------
+###  기본 조회 (아래 섹션들에서 결과를 확인할 때 다시 쓴다)
+### ---------------------------------------------------------------------------
+
+### 계좌 목록
+GET {{host}}/api/accounts
+
+### 계좌 한 개
+GET {{host}}/api/accounts/1002-345-112233
+
+### 거래내역 (쪽 단위: page 는 0부터)
+GET {{host}}/api/accounts/1002-345-112233/transactions?page=0&size=20
+
+### ---------------------------------------------------------------------------
+###  멱등성 — 같은 요청을 두 번 보내면?
+###  멱등(idempotent) = 몇 번을 보내도 결과(서버의 상태)가 같다.
+###  각 요청을 "연달아 두 번" 보내고, 위의 계좌 목록으로 결과를 비교해 본다.
+### ---------------------------------------------------------------------------
+
+### POST 두 번 → 계좌가 2개 생긴다 (계좌번호가 서로 다름) = 멱등 X
+POST {{host}}/api/accounts
+Content-Type: application/json
+
+{"customerId":1,"accountType":"적금"}
+
+### PUT 두 번 → 두 번 다 같은 상태(입출금) = 멱등 O
+PUT {{host}}/api/accounts/1002-345-112233
+Content-Type: application/json
+
+{"customerId":1,"accountType":"입출금"}
+
+### (복구) 위 실습 때문에 입출금이 됐으니 다시 적금으로 되돌린다 (AI 리포트의 적금 합계가 달라지지 않게)
+PUT {{host}}/api/accounts/1002-345-112233
+Content-Type: application/json
+
+{"customerId":1,"accountType":"적금"}
+
+### PATCH 두 번 → 두 번 다 같은 상태(휴면) = 멱등 O
+PATCH {{host}}/api/accounts/1002-345-112233/status
+Content-Type: application/json
+
+{"status":"휴면"}
+
+### (복구) 위 실습 때문에 휴면이 됐으니 다시 정상으로 되돌린다
+PATCH {{host}}/api/accounts/1002-345-112233/status
+Content-Type: application/json
+
+{"status":"정상"}
+
+### DELETE 두 번 → 새로 만든 계좌로 실습한다
+### 🚨 위 POST 응답의 accountNo 를 복사해서 아래 주소에 붙여 넣는다.
+###    시드 계좌 1~3번은 거래내역이 있어서 지우면 FK 오류가 난다.
+### 첫 번째 DELETE 와 두 번째 DELETE 의 결과 상태는 같다(계좌 없음) = 멱등 O
+DELETE {{host}}/api/accounts/여기에-accountNo-붙여넣기
+
+### ---------------------------------------------------------------------------
+###  H2 콘솔 실습 (http://localhost:8080/h2-console, JDBC URL: jdbc:h2:mem:testdb, 사용자: sa)
+###  이 파일에서 실행하는 것이 아니라 H2 콘솔 화면에 붙여 넣어 실행한다.
+###
+###  -- 🚨 표 이름은 따옴표 없이 쓴다 (Hibernate 가 따옴표 없이 만들어서 H2 에는 대문자 TRANSACTION 으로 저장돼 있다)
+###  -- ① "같은 요청 표시" 용 칸을 추가한다. UNIQUE = 같은 값이 두 번 들어오면 DB 가 막는다
+###  ALTER TABLE transaction ADD COLUMN idempotency_key VARCHAR(64) UNIQUE;
+###
+###  -- ② 같은 키를 두 거래에 넣어 본다
+###  UPDATE transaction SET idempotency_key = 'abc-123' WHERE tx_id = 1;   -- 성공
+###  UPDATE transaction SET idempotency_key = 'abc-123' WHERE tx_id = 2;   -- 실패: Unique index or primary key violation
+###
+###  => "같은 키는 한 번만" 을 DB 가 보장해 주는 것이 멱등성 키의 핵심 아이디어다.
+### ---------------------------------------------------------------------------
