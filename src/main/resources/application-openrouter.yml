@@ -1,0 +1,8 @@
+# OpenRouter = 여러 회사의 AI 를 한 주소로 부르는 "AI 모음 창구".  실행: --spring.profiles.active=openrouter
+spring:
+  ai:
+    openai:
+      base-url: https://openrouter.ai/api/v1   # 🚨 /v1 까지 적는다 (스타터가 뒤에 /chat/completions 만 붙인다)
+      api-key: ${OPENROUTER_API_KEY}
+      chat:
+        model: ${AI_MODEL:모델-이름을-넣으세요}   # OpenRouter 는 "제공사/모델" 형태

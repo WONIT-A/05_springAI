@@ -1,0 +1,7 @@
+# OpenAI 를 직접 부른다. 주소(base-url)는 스타터 기본값을 그대로 쓴다.  실행: --spring.profiles.active=openai
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: ${AI_MODEL:모델-이름을-넣으세요}

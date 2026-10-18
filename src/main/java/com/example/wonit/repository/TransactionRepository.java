@@ -1,5 +1,6 @@
 package com.example.wonit.repository;
 
+import com.example.wonit.dto.CategorySpending;
 import com.example.wonit.model.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -52,4 +54,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
 
     Page<Transaction> findByAccount_AccountNo(String accountNo, Pageable pageable);
+
+    // 📊 리포트: 숫자는 DB 가 계산한다 (group by 로 카테고리별 합계 · 건수). 🔐 customerId 로 남의 거래는 빼고
+    @Query("""
+            select new com.example.wonit.dto.CategorySpending(t.category, sum(t.amount), count(t))
+            from Transaction t
+            where t.account.customerId = :customerId and t.txType = '출금'
+              and t.txDatetime >= :from and t.txDatetime < :to
+            group by t.category
+            order by sum(t.amount) desc
+            """)
+    List<CategorySpending> spendingByCategory(@Param("customerId") Integer customerId,
+                                              @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    // 월별 합계용: 이 날짜부터의 내 거래 (계좌를 같이 가져와 N+1 을 막는다)
+    @EntityGraph(attributePaths = "account")
+    List<Transaction> findByAccount_CustomerIdAndTxDatetimeGreaterThanEqual(Integer customerId, LocalDateTime from);
 }
