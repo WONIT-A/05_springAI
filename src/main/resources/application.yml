@@ -78,3 +78,12 @@ management:
     metrics:
       export:
         enabled: false        # 받아 줄 수집기(OTel Collector)가 없으면 1분마다 전송 실패 경고가 찍힌다
+  # 🩺 Actuator: 서버의 건강검진 창구. 🚨 필요한 주소만 연다 (include: "*" 는 설정 값 · 메모리 덤프까지 열린다)
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized   # 권한 있는 사람에게만 상세(DB 상태 등)를 보여 준다
+      roles: ADMIN                    # 🚨 이 줄이 없으면 로그인한 손님 누구나 상세를 본다 (우리 토큰에는 ADMIN 이 없다)

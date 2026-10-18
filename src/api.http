@@ -126,6 +126,21 @@ Authorization: Bearer {{token}}
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 
 ### ---------------------------------------------------------------------------
+###  Actuator — 서버의 건강검진
+### ---------------------------------------------------------------------------
+
+### 살아 있나? (토큰 없이 가능) → {"status":"UP"}
+GET {{host}}/actuator/health
+
+### 지표 이름 목록 (토큰 필요 — 없으면 401)
+GET {{host}}/actuator/metrics
+Authorization: Bearer {{token}}
+
+### 요청 처리 통계: count(횟수) · total time · max
+GET {{host}}/actuator/metrics/http.server.requests
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------------
 ###  H2 콘솔 실습 (http://localhost:8080/h2-console, JDBC URL: jdbc:h2:mem:testdb, 사용자: sa)
 ###  이 파일에서 실행하는 것이 아니라 H2 콘솔 화면에 붙여 넣어 실행한다.
 ###

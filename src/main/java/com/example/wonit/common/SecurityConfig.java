@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .headers(h -> h.frameOptions(f -> f.sameOrigin()))               // H2 콘솔이 iframe 을 쓴다
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/api/auth/login", "/api/auth/signup", "/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/hello/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()   // 서버가 살았는지는 누구나 (로드밸런서가 확인한다). /actuator/metrics 는 토큰이 필요
                         .anyRequest().authenticated());     // 나머지는 토큰이 있어야 한다 (없으면 401)
         return http.build();
     }
