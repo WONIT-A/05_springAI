@@ -5,3 +5,6 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         model: ${AI_MODEL:모델-이름을-넣으세요}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}   # (선택) RAG 용 임베딩 모델. 쓰려면 application.yml 맨 아래에서 openai 두 줄의 주석을 푼다

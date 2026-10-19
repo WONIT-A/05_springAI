@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "우리WON 뱅킹 API (05_springAI)",
-    "description": "Day 0 ~ Day 2 의 API. 서버를 먼저 켠다(./gradlew bootRun, http://localhost:8080).\n- 폴더는 Day 순서. 그날 태그에 아직 없는 API 는 404 가 정상이다.\n- t3(JWT) 부터는 'Day 2 › 로그인' 을 먼저 실행 → 토큰이 자동으로 붙는다.\n- 변수: host, accountNo(실습 계좌), newAccountNo(개설 요청이 저장), token(로그인이 저장).",
+    "description": "Day 0 ~ Day 3 의 API. 서버를 먼저 켠다(./gradlew bootRun, http://localhost:8080).\n- 폴더는 Day 순서. 그날 태그에 아직 없는 API 는 404 가 정상이다.\n- t3(JWT) 부터는 'Day 2 › 로그인' 을 먼저 실행 → 토큰이 자동으로 붙는다.\n- 변수: host, accountNo(실습 계좌), newAccountNo(개설 요청이 저장), token(로그인이 저장).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1201,6 +1201,328 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Day 3 — (선택) RAG · 입금 · 이체 (t6)",
+      "description": "로그인한 고객(yeonji = 고객 1)의 계좌 기준. RAG 두 요청은 선택 (t6-rag 부터, 키가 없으면 503 / 안내 문장).",
+      "item": [
+        {
+          "name": "(선택) RAG — 규정 질문은 안내문 검색 도구로 (같은 /api/ai/chat)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/ai/chat",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"휴면 계좌는 어떻게 풀어?\"}"
+            }
+          }
+        },
+        {
+          "name": "(선택) RAG — 규정 + 숫자 (두 도구를 다 부른다)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/ai/chat",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"적금 금리가 얼마고, 내 적금 잔액은 얼마야?\"}"
+            }
+          }
+        },
+        {
+          "name": "입금 1만 원 (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/deposits",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 10000, \"memo\": \"용돈\"}"
+            }
+          }
+        },
+        {
+          "name": "휴면 계좌 입금 (409 ACCOUNT_DORMANT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/1002-345-998877/deposits",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "1002-345-998877",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 10000}"
+            }
+          }
+        },
+        {
+          "name": "이체 (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/transfers",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fromAccountNo\": \"1002-345-112233\", \"toAccountNo\": \"1002-555-667788\", \"amount\": 10000, \"memo\": \"이체 연습\"}"
+            }
+          }
+        },
+        {
+          "name": "지급정지 계좌에서 이체 (409 ACCOUNT_FROZEN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/transfers",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fromAccountNo\": \"1002-345-678901\", \"toAccountNo\": \"1002-345-112233\", \"amount\": 10000}"
+            }
+          }
+        },
+        {
+          "name": "남의 계좌에서 이체 (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/transfers",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fromAccountNo\": \"1002-555-667788\", \"toAccountNo\": \"1002-345-112233\", \"amount\": 10000}"
+            }
+          }
+        },
+        {
+          "name": "같은 계좌로 이체 (400 INVALID_ACCOUNT_REQUEST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/transfers",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fromAccountNo\": \"1002-345-112233\", \"toAccountNo\": \"1002-345-112233\", \"amount\": 10000}"
+            }
+          }
+        },
+        {
+          "name": "남(woori)의 계좌에 입금 (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/1002-555-667788/deposits",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "1002-555-667788",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 10000}"
+            }
+          }
+        },
+        {
+          "name": "소수 셋째 자리 금액 (400 — 메시지: 입금 금액은 소수 둘째 자리까지 입력하세요)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/accounts/{{accountNo}}/deposits",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountNo}}",
+                "deposits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 1.234}"
+            }
+          }
+        },
+        {
+          "name": "잔액보다 큰 이체 (409 INSUFFICIENT_BALANCE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/api/transfers",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "api",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fromAccountNo\": \"1002-345-112233\", \"toAccountNo\": \"1002-555-667788\", \"amount\": 999999999}"
+            }
+          }
         }
       ]
     }

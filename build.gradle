@@ -46,6 +46,8 @@ dependencies {
 	implementation("mysql:mysql-connector-java:8.0.33")
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai-embedding'   // (선택) RAG: Gemini 전용 임베딩 연결 (켜고 끄기는 application.yml 맨 아래 두 줄)
+	implementation 'org.springframework.ai:spring-ai-vector-store'            // (선택) RAG: 문서를 담는 벡터 저장소 (SimpleVectorStore)
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'

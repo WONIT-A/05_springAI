@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-> 화면(`frontend/`)은 아직 가짜(mock) 데이터로 그려집니다. 서버와 연결하는 것은 Day 3 입니다.
+> 화면 주소는 반드시 `http://localhost:5173` 입니다. 서버의 CORS 설정이 이 주소만 허락합니다.
 
 ### 데모 로그인
 
@@ -50,7 +50,7 @@ DB_URL='jdbc:mysql://<엔드포인트>:3306/bankdb?serverTimezone=Asia/Seoul&cha
 | Swagger UI | http://localhost:8080/swagger-ui/index.html |
 | 서버 상태 | http://localhost:8080/actuator/health |
 
-요청 예제는 IntelliJ 의 `src/api.http` 에 모여 있습니다. Postman 을 쓰면 `docs/postman/wonbanking.postman_collection.json` 을 Import 하세요 (Day 0 ~ Day 2 의 요청 47개, 사용법은 Day 0 자료의 "Postman 으로 전체 API 호출하기"). 서버를 다시 시작하면 데이터는 처음 상태로 돌아갑니다.
+요청 예제는 IntelliJ 의 `src/api.http` 에 모여 있습니다. Postman 을 쓰면 `docs/postman/wonbanking.postman_collection.json` 을 Import 하세요 (Day 0 ~ Day 3 의 요청 58개, 사용법은 Day 0 자료의 "Postman 으로 전체 API 호출하기"). 서버를 다시 시작하면 데이터는 처음 상태로 돌아갑니다.
 
 ## 3일 과정과 태그
 
@@ -64,6 +64,8 @@ DB_URL='jdbc:mysql://<엔드포인트>:3306/bankdb?serverTimezone=Asia/Seoul&cha
 | Day 2 | `t3-jwt` | 쿠키 · 세션과 JWT, 회원가입(BCrypt) · 로그인 · 토큰 인증 · 내 계좌만, MySQL 프로필(안내) | [day2-jwt-tracing-actuator.md](docs/day2-jwt-tracing-actuator.md) |
 | Day 2 | `t4-tracing` | 요청 추적 (traceId · spanId, `X-Request-Id`) | [day2-jwt-tracing-actuator.md](docs/day2-jwt-tracing-actuator.md) |
 | Day 2 | `t5-actuator` | Actuator (health · info · metrics) | [day2-jwt-tracing-actuator.md](docs/day2-jwt-tracing-actuator.md) |
+| Day 3 | `t6-rag` (선택) | RAG: 은행 안내문 검색을 AI 저축 도우미(`/api/ai/chat`)의 도구로 | [day3-rag-optional.md](docs/day3-rag-optional.md) |
+| Day 3 | `t6-react` | 입금 · 이체 API, CORS, React 연결(회원가입 · 로그인 화면), AI 저축 도우미 채팅창 | [day3-react.md](docs/day3-react.md) |
 
 스레드와 동시성 보충자료(선택)는 [docs/reference/threads.md](docs/reference/threads.md), LAZY · EAGER · N+1 · 순환 참조 참고자료는 [docs/reference/fetch-strategy.md](docs/reference/fetch-strategy.md) 입니다.
 
@@ -96,21 +98,23 @@ git switch -c my-day0 t0-start          # 그날 시작 태그에서 내 브랜�
 | Day 0 | `t0-start` (10/15(목) 이후 수업 코드 그대로) | `./gradlew bootRun` | Swagger 또는 Postman 컬렉션 (`src/api.http` 는 `t1` 부터). 토큰 없음 |
 | Day 1 | `t1-idempotency` → `t2-ai` | 키 없이: `./gradlew bootRun`<br>키 있으면: IntelliJ 실행 설정의 Active profiles 에 `gemini`, 환경변수에 `GEMINI_API_KEY=...;AI_MODEL=...` | `api.http` 또는 Swagger. 아직 로그인이 없어서 토큰 없이 된다 (데모 고객 1번) |
 | Day 2 | `t3-jwt` → `t4-tracing` → `t5-actuator` | `./gradlew bootRun` | **`api.http` 맨 위의 로그인 요청을 먼저 실행** → 토큰이 저장되고 아래 요청들이 그 토큰을 쓴다. 새 아이디는 `api.http` 의 회원가입 요청으로 만든다.<br>Swagger 로 하려면 `POST /api/auth/login` 을 먼저 실행하고, 오른쪽 위 **Authorize** 에 `accessToken` 을 붙여 넣는다 |
+| Day 3 | `t5-actuator` → (`t6-rag` 선택) → `t6-react` | 터미널 1: `./gradlew bootRun`<br>터미널 2: `cd frontend && npm ci && npm run dev` | 브라우저에서 **http://localhost:5173** 접속, `yeonji` / `1234` 로그인 (또는 **회원가입**) |
 
-- AI 키는 **파일에 적지 않고 환경변수로만** 넣습니다 (`application-gemini.yml` 이 `${GEMINI_API_KEY}` 를 읽는다). OpenRouter 는 프로필 `openrouter` + `OPENROUTER_API_KEY`, OpenAI 는 `openai` + `OPENAI_API_KEY`. `.env` 파일은 Spring Boot 가 자동으로 읽지 않습니다.
-- Git Bash 로 키와 함께 실행하기: `GEMINI_API_KEY=... AI_MODEL=... ./gradlew bootRun --args='--spring.profiles.active=gemini'`
+- AI 키는 **파일에 적지 않고 환경변수로만** 넣습니다. `t6-rag` 부터는 `application.yml` 이 Gemini 를 기본으로 써서 **프로필 없이 `GEMINI_API_KEY` 만** 넣으면 됩니다 (채팅 모델 기본값 `gemini-3.5-flash-lite`, RAG 임베딩은 Gemini 전용 연결). `t2` ~ `t5` 는 `application-gemini.yml` 이 `${GEMINI_API_KEY}` 를 읽습니다. OpenRouter 는 프로필 `openrouter` + `OPENROUTER_API_KEY`, OpenAI 는 `openai` + `OPENAI_API_KEY`. `.env` 파일은 Spring Boot 가 자동으로 읽지 않습니다.
+- Git Bash 로 키와 함께 실행하기: `t6-rag` 부터 `GEMINI_API_KEY=... ./gradlew bootRun`, `t2` ~ `t5` 는 `GEMINI_API_KEY=... AI_MODEL=... ./gradlew bootRun --args='--spring.profiles.active=gemini'`
 
 ### 자주 막히는 곳
 
 | 증상 | 원인과 해결 |
 |---|---|
 | 태그를 바꿨더니 빨간 줄 · import 오류 | Gradle 새로고침을 안 했다 |
-| `t3` 부터 모든 요청이 401 | `api.http` 의 로그인 요청을 먼저 실행하지 않았다. Swagger 는 오른쪽 위 **Authorize** 에 `accessToken` 을 붙여 넣었는지 확인한다. 토큰은 30분 뒤 만료되니 다시 로그인한다 |
+| `t3` 부터 모든 요청이 401 | `api.http` 의 로그인 요청을 먼저 실행하지 않았다. Swagger 는 오른쪽 위 **Authorize** 에 `accessToken` 을 붙여 넣었는지 확인한다. 토큰이 만료되면(`t3` ~ `t5` 30분, `t6-rag` 부터 300분) 다시 로그인한다 |
 | `mysql` 프로필로 켰더니 `yeonji` 로그인이 401 | 정상. 이 프로필에는 데모 데이터가 없다. 회원가입으로 새 아이디를 만든다 |
 | 남의 계좌 주소로 요청하면 403 | 정상. `t3` 부터 주소의 계좌번호가 토큰 주인의 계좌인지 확인한다 (`woori` 로 `yeonji` 계좌를 부르면 403, 없는 계좌는 404) |
 | 서버를 다시 켰더니 데이터가 원래대로 | 정상. 메모리 DB 라서 켤 때마다 시드 데이터로 시작한다 |
 | `Port 8080 already in use` | 다른 창에서 서버가 이미 실행 중. 그 서버를 끈다 |
 | AI 답이 늘 `기타` 나 "쓸 수 없습니다" | 키 · 모델 이름 · 프로필 중 하나가 빠졌다. 콘솔의 WARN 로그에 원인이 나온다 |
+| 화면이 서버를 못 부른다 (CORS) | 화면은 반드시 `localhost:5173` 으로 연다. 다른 포트 · IP 는 막힌다 |
 | Mac · Linux 에서 `./gradlew` 권한 오류 | `chmod +x gradlew` 한 번 (Windows Git Bash 는 그대로 된다) |
 | 내 수정이 있는데 태그를 못 바꾼다 | `git add . && git commit -m "내 실습"` 으로 저장한 뒤 바꾼다 |
 
@@ -120,12 +124,12 @@ git switch -c my-day0 t0-start          # 그날 시작 태그에서 내 브랜�
 ./gradlew test
 ```
 
-리포트 · AI 도우미는 `ReportFlowTest`, 회원가입 · 로그인 · 내 계좌만 · 남의 계좌 403 은 `AuthFlowTest` 가 확인합니다. Day 0 의 테스트(`AccountTest` 등)는 Day 0 자료 8절에서 다룹니다.
+리포트 · AI 도우미는 `ReportFlowTest`, 회원가입 · 로그인 · 내 계좌만 · 남의 계좌 403 은 `AuthFlowTest`, 입금 · 이체 흐름은 `TransferFlowTest` 가 확인합니다. Day 0 의 테스트(`AccountTest` 등)는 Day 0 자료 8절에서 다룹니다.
 
-태그별 전체 테스트 수는 `t0` 16 · `t1` 16 · `t2` 22 · `t3` 31 · `t4` 31 · `t5` 31 개입니다. 태그마다 1개(`TestLifeCycle.test3`, `@Disabled`)는 건너뜁니다.
+태그별 전체 테스트 수는 `t0` 16 · `t1` 16 · `t2` 22 · `t3` 31 · `t4` 31 · `t5` 31 · `t6-rag` 33 · `t6-react` 40 개입니다. 태그마다 1개(`TestLifeCycle.test3`, `@Disabled`)는 건너뜁니다.
 
 ## 일부러 넣지 않은 것
 
-- `Idempotency-Key` 처리: 개념과 H2 `UNIQUE` 실습까지만 하고, 서버 코드로는 만들지 않습니다
+- `Idempotency-Key` 처리: React 는 헤더를 보내지만 서버는 읽지 않고 무시합니다 (같은 이체를 두 번 보내면 두 번 처리됨)
 - `Transfer` 표와 수수료, Docker, Prometheus · Grafana
 - 회원 관리 기능: 비밀번호 변경 · 탈퇴 · 이메일 인증 · 토큰 취소(로그아웃 서버 처리)는 없습니다. 회원가입은 아이디 · 비밀번호 · 이름만 받습니다

@@ -381,7 +381,7 @@ GET http://localhost:8080/api/accounts/1002-345-678901/transactions?page=1&size=
 Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
 ```
 
-`Page` 객체를 그대로 JSON 으로 만드는 모양은 **라이브러리 버전에 따라 바뀔 수 있다**는 경고입니다. 위의 `pageable` · `sort` 같은 필드가 그 예입니다. Day 3(`t6-react`)에서 `WebConfig` 한 줄로 `{content, page}` 모양으로 고정합니다 (Day 3 자료 3절).
+`Page` 객체를 그대로 JSON 으로 만드는 모양은 **라이브러리 버전에 따라 바뀔 수 있다**는 경고입니다. 위의 `pageable` · `sort` 같은 필드가 그 예입니다. Day 3(`t6-react`)에서 `WebConfig` 한 줄로 `{content, page}` 모양으로 고정합니다 ([day3-react.md](day3-react.md) 3절).
 
 🚨 지금 `AccountController` 의 이 메서드 위 주석에는 응답이 `{ "content": [...], "page": {...} }` 모양이라고 적혀 있습니다. 그것은 **Day 3 에서 `WebConfig` 를 만든 뒤의 결과**를 적은 것이고, Day 0 에서 실제로 받는 응답은 위의 모양입니다.
 

@@ -1,5 +1,6 @@
 package com.example.wonit.controller;
 
+import com.example.wonit.ai.BankDocs;
 import com.example.wonit.ai.BankTools;
 import com.example.wonit.dto.ChatRequest;
 import com.example.wonit.dto.ChatResponse;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -40,15 +42,17 @@ public class AiController {
     private final ReportService reportService;
     private final ChatMemory chatMemory;        // Spring AI 가 자동으로 만들어 준다 (서버 메모리, 최근 20개 메시지)
     private final Resource savingsPrompt;       // 시스템 프롬프트 파일
+    private final BankDocs bankDocs;            // (선택) RAG: 은행 안내문 검색 도구
 
     // 프로필(gemini · openrouter · openai)에 따라 어느 회사 AI 가 붙을지 정해진다. 코드는 그대로다
     // 프롬프트를 코드 밖 파일로 → 코드 수정 · 재컴파일 없이 문구만 고친다. {today} 같은 자리는 실행할 때 채운다
     public AiController(ChatClient.Builder builder, ReportService reportService, ChatMemory chatMemory,
-                        @Value("classpath:prompts/savings-assistant.st") Resource savingsPrompt) {
-        this.chatClient = builder.build();
+                        @Value("classpath:prompts/savings-assistant.st") Resource savingsPrompt, BankDocs bankDocs) {
+        this.chatClient = builder.defaultAdvisors(new SimpleLoggerAdvisor()).build();
         this.reportService = reportService;
         this.chatMemory = chatMemory;
         this.savingsPrompt = savingsPrompt;
+        this.bankDocs = bankDocs;
     }
 
     @PostMapping("/category")
@@ -74,9 +78,10 @@ public class AiController {
     //   - 숫자는 DB 가 계산하고(리포트), 문장은 AI 가 만든다
     //   - AI 에게 BankTools 의 메서드를 "도구" 로 건넨다. 어떤 도구를 부를지는 AI 가 고르고, 실제 실행은 우리 서버가 한다
     //   - 🔐 BankTools 는 토큰 주인의 customerId 로 만든다 → AI 가 다른 고객 번호를 넣을 수 없다
+    //   - 📚 (선택) RAG: 규정 · 상품 안내는 BankDocs 의 검색 도구로 → 숫자 질문이면 BankTools, 규정 질문이면 BankDocs, 둘 다면 둘 다 AI 가 부른다
     //   - 대화를 서버 메모리(ChatMemory)에 저장해서 "그럼 그 중에 식비는?" 같은 이어지는 질문을 이해한다
     //     대화 번호 = customerId → 🔐 고객마다 대화가 따로 저장된다. 서버를 다시 켜면 사라진다 (DB 에 저장하려면 JDBC ChatMemoryRepository — 설명만)
-    @Operation(summary = "AI 저축 도우미 (Tool Calling)")
+    @Operation(summary = "AI 저축 도우미 (Tool Calling + RAG)")
     @PostMapping("/chat")
     public ChatResponse chat(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         Integer customerId = Integer.valueOf(jwt.getSubject());
@@ -86,7 +91,7 @@ public class AiController {
                     .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, String.valueOf(customerId)))
                     .user(request.message())
-                    .tools(new BankTools(customerId, reportService))
+                    .tools(new BankTools(customerId, reportService), bankDocs)   // 숫자 도구 + 안내문 검색 도구
                     .call().content();
             return new ChatResponse(reply);
         } catch (Exception e) {      // 키 없음 · 시간 초과 등 → category 와 같은 생각: AI 가 실패해도 서버는 멀쩡히 답한다

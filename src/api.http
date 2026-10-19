@@ -186,3 +186,29 @@ Content-Type: application/json
 ### 새 대화 → 204 (내 대화 기억만 지운다)
 DELETE {{host}}/api/ai/chat
 Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------------
+###  (선택) RAG — 같은 /api/ai/chat 이 은행 안내문(resources/rag/*.md)도 찾아 본다
+###  콘솔에 "AI 가 도구 호출: searchBankRules(...)" 가 찍히면 안내문을 찾은 것
+### ---------------------------------------------------------------------------
+
+### ① 규정 질문 → 안내문 검색 도구
+POST {{host}}/api/ai/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"message":"휴면 계좌는 어떻게 풀어?"}
+
+### ② 규정 + 숫자 → 두 도구를 다 부른다 (안내문의 금리 + 내 적금 잔액)
+POST {{host}}/api/ai/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"message":"적금 금리가 얼마고, 내 적금 잔액은 얼마야?"}
+
+### ③ 안내문에도 없고 은행과도 관계없는 질문 → 정중히 거절해야 정상
+POST {{host}}/api/ai/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"message":"요즘 어떤 주식을 사면 좋을까요?"}
