@@ -1,5 +1,7 @@
 package com.example.wonit.controller;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,5 +36,32 @@ public class HelloController {
                            @RequestParam(value="name", defaultValue = "안 들어옴") String name,
                            @RequestParam(value="footSize", defaultValue = "안 들어옴2") String foot) {
         return "Hello, Spring Boot! " + path + " "+ name + " 신발사이즈는 " + foot;
+    }
+
+    // 🍪 쿠키 실습: localhost:8080/hello/cookie 를 두 번 열어 보자
+    // @CookieValue(name = "snack", required = false) String snack, 브라우저의 현재 사이트 쿠키 중에 snack이라는 값을 찾겠음
+    @GetMapping("/cookie")
+    public String cookie(@CookieValue(name = "snack", required = false) String snack,
+                         @RequestParam(name = "input", required = false) String input,
+                         HttpServletResponse response) {
+        if (snack == null) {                                     // 처음 온 손님
+            Cookie cookie = new Cookie("snack", input);
+            cookie.setPath("/");
+            cookie.setMaxAge(30); // 넣기 전에 셋팅을 하고 넣어줍니다.
+            response.addCookie(cookie);  //30초짜리 쿠기를 하나 만들고 넣어서 응답에 Set-Cookie: snack=choco 를 싣는다
+
+            return "쿠키가 없어서 하나 줬습니다. 새로고침해 보세요";
+        }
+        return "브라우저가 쿠키를 들고 왔습니다: snack=" + snack;   // 다음부터는 브라우저가 알아서 보낸다
+    }
+
+    // 🍪 쿠키 지우기: 서버는 브라우저의 쿠키를 직접 못 지운다 → "수명 0" 짜리로 덮어쓰게 한다
+    @GetMapping("/cookie/delete")
+    public String deleteCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("snack", "");
+        cookie.setPath("/");          // 🚨 만들 때와 path 가 같아야 같은 쿠키로 본다 (빼면 안 지워진다)
+        cookie.setMaxAge(0);          // 수명 0 → 브라우저가 바로 지운다
+        response.addCookie(cookie);
+        return "쿠키를 지웠습니다. /hello/cookie 를 다시 열어 보세요";
     }
 }

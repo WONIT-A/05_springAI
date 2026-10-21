@@ -71,6 +71,7 @@ public class AuthController {
                 .subject(String.valueOf(user.getCustomerId()))      // 토큰 주인 = 고객번호
                 .claim("name", user.getName())
                 .claim("grade", user.getGrade())
+                .claim("NEW", "임의로 삽입")
                 .issuedAt(now)
                 .expiresAt(now.plus(Duration.ofMinutes(expirationMinutes)))
                 .build();

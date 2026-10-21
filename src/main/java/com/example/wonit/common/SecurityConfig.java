@@ -15,6 +15,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
@@ -47,6 +49,16 @@ public class SecurityConfig {
     }
 
     @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter grade = new JwtGrantedAuthoritiesConverter();
+        grade.setAuthoritiesClaimName("grade");     //기본값은 scope라서 grade를 보라고 알려준다
+        grade.setAuthorityPrefix("");               //기본 접두사 SCOPE_를 없앤다 →권한 이름이 "VIP"그대로
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(grade);
+        return converter;
+    }
+
+    @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)      // 쿠키 세션을 안 쓰고 토큰을 쓰므로 CSRF 는 끈다
@@ -55,6 +67,7 @@ public class SecurityConfig {
                 .headers(h -> h.frameOptions(f -> f.sameOrigin()))               // H2 콘솔이 iframe 을 쓴다
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/api/auth/login", "/api/auth/signup", "/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/hello/**").permitAll()
+                        .requestMatchers("/api/ai/**").hasAuthority("VIP")
                         .anyRequest().authenticated());     // 나머지는 토큰이 있어야 한다 (없으면 401)
         return http.build();
     }

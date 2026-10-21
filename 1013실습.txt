@@ -126,3 +126,11 @@ server:
    7. **가설 → 한 군데만 고치기 → 2번으로**
 
 
+ jwt와 spring security를 활용한
+http://localhost:8080/api/accounts/report1 를 yeonji 1234로 로그인(인증)하면
+"1002-555-667788"는 볼 수 없도록(인가) 로직을 구현해보세요.
+
+1번 고객은 VIP 레벨(grade)
+2번 고객은 일반 레벨(grade)
+-> AI 기능을 VIP 레벨만 접근할 수 있도록(인가)
+3시 50분까지

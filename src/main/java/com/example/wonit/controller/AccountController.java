@@ -126,6 +126,10 @@ public class AccountController {
      */
     @GetMapping("/{accountNo}")
     public AccountResponse findOne(@AuthenticationPrincipal Jwt jwt, @PathVariable("accountNo") String accountNo){
+        log.debug("header ====== jwt.getHeaders() {}", jwt.getHeaders());
+        log.debug("payload ====== jwt.getClaims() {}", jwt.getClaims());
+        log.debug("payload ====== jwt.getSubject() {}", jwt.getSubject());
+
         checkMine(jwt, accountNo);
     // public Account findOne(@PathVariable("accountNo") String accountNo){
         // log.trace("trace level의 로그 - 자잘함");
@@ -140,8 +144,12 @@ public class AccountController {
 
     // 계좌 전체를 조회해서 그중에 '정상' 계좌만 계좌번호만 출력
     @GetMapping("/report1")
-    public List<String> normalAccountNos() {
-        return accountService.normalAccountNos();
+    public List<String> normalAccountNos(@AuthenticationPrincipal Jwt jwt) {
+        // customerId
+        log.debug("====== jwt.getHeaders()", jwt.getHeaders());
+        log.debug("====== jwt.getClaims()", jwt.getClaims());
+        int customerId = Integer.parseInt(jwt.getSubject());
+        return accountService.normalAccountNos(customerId);
     }
 
     // 전체 계좌중에 account_type이 '적금'인 경우만 금액을 모두 더해서 리턴
@@ -179,7 +187,12 @@ public class AccountController {
 
     // balance 순서대로 작은 금액에서 큰 금액 순서로 모든 계좌 조회
     @GetMapping("/sort") // localhost:8080/api/accounts/sort
-    public List<AccountResponse> findAllAccountsByBalanceAsc(){
+    public List<AccountResponse> findAllAccountsByBalanceAsc(@AuthenticationPrincipal Jwt jwt){
+        log.debug("header ====== jwt.getHeaders() {}", jwt.getHeaders());
+        log.debug("payload ====== jwt.getClaims() {}", jwt.getClaims());
+        String accountNo = jwt.getSubject();
+        log.debug("payload에서 꺼내온 customerId ==={}", accountNo);
+        checkMine(jwt, accountNo);
         return accountService.findAllAccountsByBalanceAsc().stream().map(AccountResponse::from).toList();
     }
 

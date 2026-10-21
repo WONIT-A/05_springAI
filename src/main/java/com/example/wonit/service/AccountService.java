@@ -11,27 +11,20 @@ package com.example.wonit.service;
 
 import com.example.wonit.dto.AccountCreateRequest;
 import com.example.wonit.dto.AccountPatchRequest;
-import com.example.wonit.dto.TransactionResponse;
 import com.example.wonit.exception.*;
 import com.example.wonit.model.Account;
 import com.example.wonit.model.Transaction;
 import com.example.wonit.repository.AccountRepository;
 import com.example.wonit.repository.TransactionRepository;
-import io.swagger.v3.oas.annotations.Operation;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -104,8 +97,14 @@ public class AccountService {
     }
 
     // 실제동작을 아래 함수에 작성해 줍니다. db에서 모든 계좌를 조회해서
-    public List<String> normalAccountNos() {
-        return accountRepository.findAll()
+//    public List<String> normalAccountNos() {
+//        return accountRepository.findAll()
+//                .stream().filter(account -> account.getStatus().equals("정상"))
+//                .map(Account::getAccountNo).toList();  // .mapToLong(Account::getBalance).sum();
+//    }
+
+    public List<String> normalAccountNos(int customerId) {
+        return accountRepository.findByCustomerId(customerId)
                 .stream().filter(account -> account.getStatus().equals("정상"))
                 .map(Account::getAccountNo).toList();  // .mapToLong(Account::getBalance).sum();
     }
@@ -132,6 +131,9 @@ public class AccountService {
         return accountRepository.findByAccountTypeLike(accountType);
     }
 
+    public List<Account> findAccountsByAccountNoByAccountType(String accountType) {
+        return accountRepository.findByAccountTypeLike(accountType);
+    }
 
     public List<Account> getAccountBetweenBalance(long minBalance, long maxBalance) {
         log.debug("Repository 잔액 조회 시작: minBalance={}, maxBalance={}",
