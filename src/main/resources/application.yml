@@ -57,6 +57,13 @@ logging:
     org.hibernate.SQL: DEBUG                   # 실행되는 SQL (show-sql 대신 이것을 권장: 로그 형식·레벨을 따름)
     org.hibernate.orm.jdbc.bind: TRACE         # SQL 의 ? 자리에 실제로 들어간 값
     org.springframework.orm.jpa.JpaTransactionManager: DEBUG   # Creating new transaction → commit / rollback 이 찍힌다
+    org:
+      springframework:
+        ai:
+          chat:
+            client:
+              advisor:
+                SimpleLoggerAdvisor: DEBUG #  ChatClient 요청과 응답을 로그로 남김
 
 #  file:
 #    name: logs/wonit.log

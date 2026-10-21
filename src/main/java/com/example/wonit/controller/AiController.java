@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -43,7 +44,7 @@ public class AiController {
     // 프롬프트를 코드 밖 파일로 → 코드 수정 · 재컴파일 없이 문구만 고친다. {today} 같은 자리는 실행할 때 채운다
     public AiController(ChatClient.Builder builder, ReportService reportService, ChatMemory chatMemory,
                         @Value("classpath:prompts/savings-assistant.st") Resource savingsPrompt) {
-        this.chatClient = builder.build();
+        this.chatClient = builder.defaultAdvisors(new SimpleLoggerAdvisor()).build();
         this.reportService = reportService;
         this.chatMemory = chatMemory;
         this.savingsPrompt = savingsPrompt;
