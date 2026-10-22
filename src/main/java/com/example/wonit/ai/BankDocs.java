@@ -34,6 +34,7 @@ public class BankDocs {
         this.files = files;
     }
 
+    // @Transcational 이 DB에서 하는 역할과 비슷
     public synchronized VectorStore store() {
         if (!loaded) {
             List<Document> docs = new ArrayList<>();
