@@ -1,0 +1,479 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'WONIT-A WON Banking - one-shot deploy (Seoul ap-northeast-2 only): VPC, public ALB, bastion (public), backend EC2 (private, Docker), RDS MySQL (private), NAT gateway'
+
+# 사용법
+#   1. 서울 리전(ap-northeast-2)에서 CloudFormation > 스택 생성 > 이 파일 업로드
+#   2. 파라미터: YourName(영문 소문자 16자 이하), KeyName(미리 만든 키 페어), DbPassword
+#   3. 스택이 CREATE_COMPLETE 가 되면(RDS 때문에 15분 안팎) 출력(Outputs) 탭의 순서대로 진행
+# 구성
+#   클라이언트 -> (CloudFront /api/*) -> 공개 ALB (공개 2A / 2C, web-sg 80/443) -> 백엔드 EC2 :8080 (사설 2A) -> RDS (사설 2A / 2C)
+#   나   -> Bastion (공개 2A, SSH) -> 백엔드 EC2
+#   백엔드는 공인 IP 가 없다. 인터넷(apt, Docker Hub)으로는 NAT 게이트웨이를 거쳐 나간다
+#   CloudFront: 원본에 ALB DNS 이름(출력 AlbDnsName)을 HTTP 전용 · 포트 80 으로 추가하고 /api/* 동작에 연결
+# 지울 때: 스택 삭제 (RDS 는 최종 스냅샷 없이 지워진다)
+# 주석(#)은 콘솔에 표시되지 않으므로 한글로 적는다. 콘솔에 보이는 설명 · 출력은 깨지지 않게 영어로 둔다
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: '1. Basic' }
+        Parameters: [YourName, KeyName, InstanceType, BastionInstanceType, DomainName]
+      - Label: { default: '2. Database (RDS MySQL)' }
+        Parameters: [DbUsername, DbPassword, DbInstanceClass]
+
+Parameters:
+  YourName:
+    Type: String
+    Default: 'myname'
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{1,15}$'
+    ConstraintDescription: 'lowercase letters, digits, hyphen (2-16 chars; ALB and target group names are limited to 32 chars)'
+    Description: 'My name in lowercase (e.g. kimyeonji). Resources are named wonit-a-<name>-...'
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: 'Key pair for SSH to the bastion and the backend (create it in Seoul first)'
+  InstanceType:
+    Type: String
+    Default: 't3.small'
+    AllowedValues: ['t3.small', 't3.medium']
+    Description: 'Backend EC2 size. t3.small (2GB) + 2GB swap'
+  BastionInstanceType:
+    Type: String
+    Default: 't3.micro'
+    AllowedValues: ['t3.nano', 't3.micro']
+    Description: 'Bastion size (SSH entry point only, small is enough)'
+  DomainName:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^([a-z0-9-]+\.)+[a-z]{2,}$'
+    ConstraintDescription: 'e.g. kimyeonji.woncare.shop (no trailing dot)'
+    Description: 'My domain (e.g. kimyeonji.woncare.shop). Written to APP_CORS_ALLOWED_ORIGINS. Empty = http://localhost:5173'
+  DbUsername:
+    Type: String
+    Default: 'admin'
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9]{0,15}$'
+    Description: 'RDS master user name'
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '^[a-zA-Z0-9!#%^*_+=-]+$'
+    ConstraintDescription: '8-41 chars: letters, digits, ! # % ^ * _ + = - (no / @ " or space)'
+    Description: 'RDS master password (never shown again - write it down)'
+  DbInstanceClass:
+    Type: String
+    Default: 'db.t3.micro'
+    AllowedValues: ['db.t3.micro', 'db.t4g.micro']
+    Description: 'RDS size'
+
+# Seoul only: in any other region this lookup fails and the stack stops right away
+Mappings:
+  RegionMap:
+    ap-northeast-2:
+      AzA: ap-northeast-2a
+      AzC: ap-northeast-2c
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Resources:
+  # =========================================================
+  # 01. VPC
+  # =========================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.250.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-vpc' }
+        - { Key: Owner, Value: !Ref YourName }
+
+  # =========================================================
+  # 02. Subnets (public 2A / 2C, private 2A / 2C)
+  #     Bastion and NAT go to public 2A. Backend EC2 to private 2A. RDS to private 2A / 2C (RDS needs 2 AZs)
+  # =========================================================
+  PublicSubnet2A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, !Ref 'AWS::Region', AzA]
+      CidrBlock: 10.250.4.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-vpc-pub-2a' }
+
+  PublicSubnet2C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, !Ref 'AWS::Region', AzC]
+      CidrBlock: 10.250.12.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-vpc-pub-2c' }
+
+  PrivateSubnet2A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, !Ref 'AWS::Region', AzA]
+      CidrBlock: 10.250.2.0/24
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-vpc-pri-2a' }
+
+  PrivateSubnet2C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, !Ref 'AWS::Region', AzC]
+      CidrBlock: 10.250.14.0/24
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-vpc-pri-2c' }
+
+  # =========================================================
+  # 03. Internet gateway + public routing
+  # =========================================================
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-igw' }
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-rt-pub' }
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  RTAssociationPub2A:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2A
+      RouteTableId: !Ref PublicRouteTable
+
+  RTAssociationPub2C:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2C
+      RouteTableId: !Ref PublicRouteTable
+
+  # =========================================================
+  # 04. Private routing + NAT gateway (2A only)
+  #     The backend EC2 in the private subnet needs it to install Docker and pull the image
+  #     Billed per hour while it exists (plus data) - delete the stack after class
+  # =========================================================
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-rt-pri' }
+
+  RTAssociationPri2A:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2A
+      RouteTableId: !Ref PrivateRouteTable
+
+  RTAssociationPri2C:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2C
+      RouteTableId: !Ref PrivateRouteTable
+
+  NatEIP2A:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-ngw-2a-eip' }
+
+  NatGateway2A:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP2A.AllocationId
+      SubnetId: !Ref PublicSubnet2A
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-ngw-2a' }
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2A
+
+  # =========================================================
+  # 05. Security groups
+  # =========================================================
+  # Bastion: SSH 22 from anywhere (the key pair is the only lock)
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'wonit-a-${YourName}-prd-bastion-sg'
+      GroupDescription: 'Bastion: SSH 22 from anywhere'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: 0.0.0.0/0, Description: 'SSH' }
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-bastion-sg' }
+
+  # Backend: rules are open, but it sits in a private subnet with no public IP, so only the VPC (bastion) can reach it
+  Ec2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'wonit-a-${YourName}-prd-ec2-sg'
+      GroupDescription: 'Backend: SSH 22 / app 8080 / 5174 from anywhere (private subnet: reachable only inside the VPC)'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: 0.0.0.0/0, Description: 'SSH' }
+        - { IpProtocol: tcp, FromPort: 8080, ToPort: 8080, CidrIp: 0.0.0.0/0, Description: 'app (Swagger)' }
+        - { IpProtocol: tcp, FromPort: 5174, ToPort: 5174, CidrIp: 0.0.0.0/0, Description: 'port 5174' }
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-ec2-sg' }
+
+  # Web: HTTP 80 / HTTPS 443 from anywhere -> attached to the public ALB
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'wonit-a-${YourName}-prd-web-sg'
+      GroupDescription: 'Web: HTTP 80 / HTTPS 443 from anywhere'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0, Description: 'HTTP' }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: 'HTTPS' }
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-web-sg' }
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'wonit-a-${YourName}-prd-db-sg'
+      GroupDescription: 'MySQL 3306 from anywhere (private subnet: reachable only inside the VPC)'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 3306, ToPort: 3306, CidrIp: 0.0.0.0/0, Description: 'MySQL' }
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-db-sg' }
+
+  # =========================================================
+  # 06. RDS MySQL (private subnets, not reachable from the internet)
+  # =========================================================
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub 'wonit-a-${YourName}-prd-db-subnets'
+      DBSubnetGroupDescription: 'private 2a / 2c'
+      SubnetIds: [!Ref PrivateSubnet2A, !Ref PrivateSubnet2C]
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete           # class use: deleting the stack deletes the DB too (no snapshot, no cost)
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub 'wonit-a-${YourName}-prd-db'
+      Engine: mysql
+      EngineVersion: '8.4'
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: '20'
+      StorageType: gp3
+      DBName: bankdb                 # without this the app fails with Unknown database
+      MasterUsername: !Ref DbUsername
+      MasterUserPassword: !Ref DbPassword
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      DeleteAutomatedBackups: true
+      DeletionProtection: false
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-db' }
+        - { Key: Owner, Value: !Ref YourName }
+
+  # =========================================================
+  # 07. Backend EC2 (Ubuntu 24.04 + Docker) in private 2A, no public IP
+  #     On first boot: 2GB swap, install docker / compose / git, create the ~/wonbank/.env template
+  #     Passwords and the JWT key are NOT put in UserData (anyone with console access can read it): fill them in .env
+  # =========================================================
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: PrivateRoute          # UserData needs the internet (apt, Docker Hub) through NAT
+    Properties:
+      ImageId: '{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}'
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PrivateSubnet2A
+      SecurityGroupIds: [!Ref Ec2SecurityGroup]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 20, VolumeType: gp3, DeleteOnTermination: true }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -eux
+            fallocate -l 2G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            apt-get update -y
+            DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2 git
+            systemctl enable --now docker
+            usermod -aG docker ubuntu
+            mkdir -p /home/ubuntu/wonbank
+            cat > /home/ubuntu/wonbank/.env <<'EOF'
+            SPRING_PROFILES_ACTIVE=mysql,prod
+            DB_URL=jdbc:mysql://${DbHost}:3306/bankdb?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+            DB_USERNAME=${DbUsername}
+            DB_PASSWORD=CHANGE_ME
+            JWT_SECRET=CHANGE_ME
+            APP_CORS_ALLOWED_ORIGINS=${CorsOrigin}
+            DB_POOL_SIZE=10
+            EOF
+            chown -R ubuntu:ubuntu /home/ubuntu/wonbank
+            chmod 600 /home/ubuntu/wonbank/.env
+            touch /home/ubuntu/wonbank/.ready
+          - DbHost: !GetAtt Database.Endpoint.Address
+            CorsOrigin: !If [HasDomain, !Sub 'https://${DomainName}', 'http://localhost:5173']
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-ec2' }
+        - { Key: Owner, Value: !Ref YourName }
+
+  # =========================================================
+  # 08. Public ALB -> backend EC2 :8080
+  #     Health check /actuator/health (permitAll). /actuator/* is blocked from outside with a fixed 403
+  #     Idle timeout 15s: shorter than Tomcat keep-alive (20s), so the ALB never reuses a connection the app already closed (prevents random 502)
+  # =========================================================
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'wonit-a-${YourName}-prd-tg'
+      VpcId: !Ref VPC
+      Protocol: HTTP
+      Port: 8080
+      TargetType: instance
+      Targets:
+        - { Id: !Ref Ec2Instance, Port: 8080 }
+      HealthCheckPath: /actuator/health
+      HealthCheckIntervalSeconds: 15
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher: { HttpCode: '200' }
+      TargetGroupAttributes:
+        - { Key: deregistration_delay.timeout_seconds, Value: '30' }
+
+  AppLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: AttachGateway
+    Properties:
+      Name: !Sub 'wonit-a-${YourName}-prd-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets: [!Ref PublicSubnet2A, !Ref PublicSubnet2C]
+      SecurityGroups: [!Ref WebSecurityGroup]
+      LoadBalancerAttributes:
+        - { Key: idle_timeout.timeout_seconds, Value: '15' }
+      Tags:
+        - { Key: Owner, Value: !Ref YourName }
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref AppLoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - { Type: forward, TargetGroupArn: !Ref AppTargetGroup }
+
+  BlockActuatorRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig: { Values: ['/actuator/*'] }
+      Actions:
+        - Type: fixed-response
+          FixedResponseConfig: { StatusCode: '403', ContentType: text/plain, MessageBody: 'forbidden' }
+
+  # =========================================================
+  # 09. Bastion (public 2A, small) + Elastic IP: the only door for SSH into the VPC
+  # =========================================================
+  BastionInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: '{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}'
+      InstanceType: !Ref BastionInstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet2A
+      SecurityGroupIds: [!Ref BastionSecurityGroup]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -eux
+          apt-get update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-client
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-bastion' }
+        - { Key: Owner, Value: !Ref YourName }
+
+  BastionEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref BastionInstance
+      Tags:
+        - { Key: Name, Value: !Sub 'wonit-a-${YourName}-prd-bastion-eip' }
+
+Outputs:
+  BastionPublicIp:
+    Description: 'Bastion Elastic IP'
+    Value: !Ref BastionEIP
+  BackendPrivateIp:
+    Description: 'Backend EC2 private IP (reachable only through the bastion)'
+    Value: !GetAtt Ec2Instance.PrivateIp
+  SshBastion:
+    Description: '1) SSH to the bastion (Git Bash, in the folder with the .pem file)'
+    Value: !Sub 'ssh -i ${KeyName}.pem ubuntu@${BastionEIP}'
+  SshBackend:
+    Description: '2) SSH to the backend through the bastion'
+    Value: !Sub 'ssh -i ${KeyName}.pem -o ProxyCommand="ssh -i ${KeyName}.pem -W %h:%p ubuntu@${BastionEIP}" ubuntu@${Ec2Instance.PrivateIp}'
+  ReadyCheck:
+    Description: '3) On the backend: setup finished? (if the file is missing, retry in 1-2 minutes)'
+    Value: 'ls ~/wonbank/.ready && docker version'
+  EnvFile:
+    Description: '4) On the backend: replace CHANGE_ME for DB_PASSWORD and JWT_SECRET (32+ chars)'
+    Value: 'nano ~/wonbank/.env'
+  RunApp:
+    Description: '5) On the backend: run the app (replace <dockerhub-id>)'
+    Value: 'docker run -d --name wonbank --restart unless-stopped -p 8080:8080 --env-file ~/wonbank/.env <dockerhub-id>/wonbank:t8'
+  AlbDnsName:
+    Description: '6) Swagger via ALB: http://<this>/swagger-ui.html (target group must be healthy). CloudFront /api/* origin: this name, HTTP only, port 80'
+    Value: !GetAtt AppLoadBalancer.DNSName
+  SwaggerTunnel:
+    Description: '(Optional) Without the ALB: open a tunnel from my PC, then browse http://localhost:8080/swagger-ui.html'
+    Value: !Sub 'ssh -i ${KeyName}.pem -N -L 8080:${Ec2Instance.PrivateIp}:8080 ubuntu@${BastionEIP}'
+  RdsEndpoint:
+    Description: 'RDS endpoint (already in DB_URL of .env). From the bastion: mysql -h <this> -u admin -p bankdb'
+    Value: !GetAtt Database.Endpoint.Address
